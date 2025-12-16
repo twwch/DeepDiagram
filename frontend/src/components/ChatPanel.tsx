@@ -97,6 +97,7 @@ export const ChatPanel = () => {
 
         let thoughtBuffer = "";
         let toolArgsBuffer = "";
+        let detectedAgent = ""; // Local variable to track agent for this session
 
         try {
             const response = await fetch('/api/chat/stream', {
@@ -144,6 +145,7 @@ export const ChatPanel = () => {
                             } else if (eventName === 'agent_selected') {
                                 // BACKEND DECIDED AGENT
                                 setAgent(data.agent);
+                                detectedAgent = data.agent; // Update local tracker
                                 addStepToLastMessage({
                                     type: 'agent_select',
                                     name: data.agent,
@@ -198,6 +200,9 @@ export const ChatPanel = () => {
                     }
                 }
             }
+
+
+
         } catch (error) {
             console.error('Error:', error);
             updateLastMessage(thoughtBuffer + '\n\n[Error encountered]');

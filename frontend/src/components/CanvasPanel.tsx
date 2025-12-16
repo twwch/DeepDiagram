@@ -9,9 +9,10 @@ import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { SquarePen, Download, RotateCcw, Check } from 'lucide-react';
 
 export const CanvasPanel = () => {
-    const { activeAgent, currentCode, setCurrentCode } = useChatStore();
+    const { activeAgent, currentCode, setCurrentCode, isLoading } = useChatStore();
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
+    const [iframeReady, setIframeReady] = useState(false);
 
     // Refs
     const containerRef = useRef<HTMLDivElement>(null);
@@ -20,7 +21,73 @@ export const CanvasPanel = () => {
     const chartRef = useRef<HTMLDivElement>(null);
     const markmapInstanceRef = useRef<Markmap | null>(null);
     const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
     const transformRef = useRef<ReactZoomPanPinchRef>(null);
+    const drawioIframeRef = useRef<HTMLIFrameElement>(null);
+
+    // Draw.io Message Handling
+    useEffect(() => {
+        if (activeAgent !== 'drawio') return;
+
+        const handleMessage = (event: MessageEvent) => {
+            if (!event.data || typeof event.data !== 'string') return;
+
+            let msg;
+            try {
+                msg = JSON.parse(event.data);
+            } catch (e) {
+                return;
+            }
+
+            if (msg.event === 'configure') {
+                if (drawioIframeRef.current?.contentWindow) {
+                    drawioIframeRef.current.contentWindow.postMessage(JSON.stringify({
+                        action: 'configure',
+                        config: { compressXml: false } // Prefer raw XML
+                    }), '*');
+                }
+            }
+            if (msg.event === 'init') {
+                setIframeReady(true);
+                // If we already have a COMPLETE code (loading from history), send it.
+                // If we are loading (streaming), wait for it to finish (handled in another effect).
+                if (!isLoading && currentCode) {
+                    let cleanXml = currentCode.replace(/```xml\s?/, '').replace(/```/, '').trim();
+                    drawioIframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+                        action: 'load',
+                        xml: cleanXml,
+                        autosave: 1
+                    }), '*');
+                }
+            }
+            else if (msg.event === 'save' || msg.event === 'autosave') {
+                // Update store with new XML from editor
+                if (msg.xml) {
+                    setCurrentCode(msg.xml);
+                }
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [activeAgent]);
+
+    // Sync generated code to Iframe when loading finishes
+    useEffect(() => {
+        if (activeAgent === 'drawio' && iframeReady && !isLoading && currentCode && drawioIframeRef.current) {
+            let cleanXml = currentCode.replace(/```xml\s?/, '').replace(/```/, '').trim();
+            // Simple basic XML check
+            if (cleanXml.startsWith('<') && cleanXml.endsWith('>')) {
+                console.log("[DrawIO] Syncing complete XML");
+                drawioIframeRef.current.contentWindow?.postMessage(JSON.stringify({
+                    action: 'load',
+                    xml: cleanXml,
+                    autosave: 1
+                }), '*');
+            }
+        }
+    }, [activeAgent, iframeReady, isLoading, currentCode]);
+
 
     const handleStartEditing = () => {
         if (!isEditing) {
@@ -348,6 +415,18 @@ export const CanvasPanel = () => {
                                 {/* Charts (Native Zoom/Pan) */}
                                 {(activeAgent === 'charts') && (
                                     <div ref={chartRef} className="w-full h-full" />
+                                )}
+
+                                {/* Draw.io (Iframe Embed) */}
+                                {(activeAgent === 'drawio') && (
+                                    <div className="w-full h-full">
+                                        <iframe
+                                            ref={drawioIframeRef}
+                                            src="https://embed.diagrams.net/?embed=1&ui=min&modified=unsavedChanges&proto=json&configure=1"
+                                            className="w-full h-full border-none"
+                                            title="Draw.io Editor"
+                                        />
+                                    </div>
                                 )}
 
                                 {/* Placeholder/Empty State */}
