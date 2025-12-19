@@ -40,7 +40,6 @@ export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
                         a.download = `deepdiagram-drawio-${new Date().getTime()}.${ext}`;
                         a.click();
                     };
-                    // msg.format might be 'xmlsvg' or 'png', etc.
                     downloadFile(msg.data, msg.format === 'xmlsvg' || msg.format === 'svg' ? 'svg' : 'png');
                 }
             }
@@ -51,12 +50,25 @@ export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
                         compressXml: false,
                         sidebarVisible: false,
                         formatVisible: false,
-                        showFormatPanel: false
+                        showFormatPanel: false,
+                        showStartScreen: false,
+                        gridColor: '#f1f3f4',
+                        // Ensure sidebars are hidden in all themes
+                        sidebar_visible: false,
+                        format_visible: false,
+                        showSidebar: false,
+                        libraries: false
                     }
                 }), '*');
             }
             if (msg.event === 'init') {
                 setIframeReady(true);
+                // Force close panels after a delay to ensure the UI is fully loaded
+                const win = drawioIframeRef.current?.contentWindow;
+                setTimeout(() => {
+                    win?.postMessage(JSON.stringify({ action: 'exec', cmd: 'formatPanel', value: false }), '*');
+                    win?.postMessage(JSON.stringify({ action: 'exec', cmd: 'sidebar', value: false }), '*');
+                }, 1000);
             }
             else if (msg.event === 'save' || msg.event === 'autosave') {
                 if (msg.xml) {
@@ -80,19 +92,42 @@ export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
                     autosave: 1,
                     fit: 1
                 }), '*');
-                // Send explicit fit to be sure
+
+                // Explicit fit after a short delay to ensure rendering is complete
                 setTimeout(() => {
-                    win?.postMessage(JSON.stringify({ action: 'fit' }), '*');
-                }, 500);
+                    win?.postMessage(JSON.stringify({
+                        action: 'fit',
+                        padding: 20
+                    }), '*');
+                }, 1200);
             }
         }
     }, [iframeReady, currentCode]);
+
+    // Use ui=atlas with explicit sidebar=0 and format=0 which are more reliable
+    const drawioUrl = "https://embed.diagrams.net/?" + new URLSearchParams({
+        embed: '1',
+        ui: 'atlas',
+        spin: '1',
+        modified: 'unsavedChanges',
+        proto: 'json',
+        configure: '1',
+        fit: '1',
+        sidebar: '0',
+        format: '0',
+        libs: '0',
+        menubar: '0',
+        toolbar: '0',
+        status: '0',
+        noSaveBtn: '1',
+        noExitBtn: '1'
+    }).toString();
 
     return (
         <div className="w-full h-full">
             <iframe
                 ref={drawioIframeRef}
-                src="https://embed.diagrams.net/?embed=1&ui=atlas&menubar=0&toolbar=0&status=0&format=0&libraries=0&layers=0&libs=0&clibs=0&modified=unsavedChanges&proto=json&configure=1&fit=1&sidebar=0"
+                src={drawioUrl}
                 className="w-full h-full border-none"
                 title="Draw.io Editor"
             />
