@@ -211,6 +211,8 @@ export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
                 isInternalUpdate.current = false;
                 return;
             }
+            if (isLoading) return; // Wait for completion
+
             try {
                 let jsonStr = currentCode;
                 const match = currentCode.match(/```(?:json)?\s*([\s\S]*?)\s*```/);

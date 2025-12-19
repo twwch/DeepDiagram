@@ -57,8 +57,6 @@ def render_drawio_xml(xml_content: str = ""):
     if not xml_content:
         return "Error: No XML content provided."
     
-    # In a real tool, we might validate or parse. 
-    # For now, we return it so the frontend tool_end event captures it.
     return xml_content
 
 tools = [render_drawio_xml]
@@ -69,11 +67,10 @@ async def drawio_agent(state: AgentState):
     """
     messages = state.get("messages", [])
     
-    # Bind tool and force it? Or let LLM decide?
-    # Better to force it to ensure UI consistency.
+    # Bind tool
     llm_with_tools = llm.bind_tools(tools)
     
-    # We append a specific instruction to use the tool
+    # System message with original instruction
     msg = [SystemMessage(content=DRAWIO_SYSTEM_PROMPT + "\n\nCRITICAL: You MUST use the `render_drawio_xml` tool to output your result.")] + messages
     
     response = await llm_with_tools.ainvoke(msg)

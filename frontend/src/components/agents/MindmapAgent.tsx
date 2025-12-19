@@ -40,7 +40,7 @@ const convertToMarkdown = (node: any, level: number = 1): string => {
 };
 
 export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, setCurrentCode } = useChatStore();
+    const { currentCode, setCurrentCode, isLoading } = useChatStore();
     const mindmapRef = useRef<HTMLDivElement>(null);
     const mindmapInstanceRef = useRef<any>(null);
     const isInternalUpdate = useRef(false);
@@ -80,7 +80,7 @@ export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
     }));
 
     useEffect(() => {
-        if (!currentCode || !mindmapRef.current) return;
+        if (!currentCode || !mindmapRef.current || isLoading) return;
 
         if (isInternalUpdate.current) {
             isInternalUpdate.current = false;
@@ -118,7 +118,16 @@ export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
         } else {
             mindmapInstanceRef.current.init(data);
         }
-    }, [currentCode, setCurrentCode]);
+    }, [currentCode, setCurrentCode, isLoading]);
+
+    useEffect(() => {
+        if (!isLoading && mindmapInstanceRef.current && currentCode) {
+            setTimeout(() => {
+                mindmapInstanceRef.current?.scaleFit();
+                mindmapInstanceRef.current?.toCenter();
+            }, 100);
+        }
+    }, [isLoading, currentCode]);
 
     return <div ref={mindmapRef} className="w-full h-full" />;
 });

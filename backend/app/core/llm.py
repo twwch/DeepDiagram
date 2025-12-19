@@ -17,7 +17,8 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3):
             base_url=settings.DEEPSEEK_BASE_URL,
             model=model,
             temperature=temperature,
-            streaming=True
+            streaming=True,
+            request_timeout=120
         )
     
     # Fallback to OpenAI
@@ -26,5 +27,6 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3):
         base_url=settings.OPENAI_BASE_URL,
         model=model_name or "claude-sonnet-3.7",
         temperature=temperature,
-        streaming=True
+        streaming=True,
+        request_timeout=120
     )

@@ -45,7 +45,7 @@ const ZoomControls = ({ onFit }: { onFit: () => void }) => {
 };
 
 export const MermaidAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode } = useChatStore();
+    const { currentCode, isLoading } = useChatStore();
     const containerRef = useRef<HTMLDivElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [svgContent, setSvgContent] = useState<string>('');
@@ -172,7 +172,7 @@ export const MermaidAgent = forwardRef<AgentRef>((_, ref) => {
     useEffect(() => {
         setIsLoaded(false);
         const renderDiagram = async () => {
-            if (!currentCode || !containerRef.current) return;
+            if (!currentCode || !containerRef.current || isLoading) return;
 
             try {
                 // 1. Validate syntax first to prevent silent "Syntax error" SVG generation
@@ -218,7 +218,7 @@ export const MermaidAgent = forwardRef<AgentRef>((_, ref) => {
         };
 
         renderDiagram();
-    }, [currentCode]);
+    }, [currentCode, isLoading]);
 
     // Use ResizeObserver to trigger fit when container size changes/initializes
     useEffect(() => {
