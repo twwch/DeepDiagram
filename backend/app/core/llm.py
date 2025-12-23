@@ -6,6 +6,8 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3):
     Returns a ChatOpenAI instance configured for either OpenAI or DeepSeek
     based on environment variables.
     """
+
+    max_tokens = 1024*16
     
     # Priority: DeepSeek if key is present
     if settings.DEEPSEEK_API_KEY:
@@ -18,7 +20,8 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3):
             model=model,
             temperature=temperature,
             streaming=True,
-            request_timeout=120
+            request_timeout=120,
+            max_tokens=max_tokens
         )
     
     # Fallback to OpenAI
@@ -28,5 +31,6 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3):
         model=model_name or "claude-sonnet-3.7",
         temperature=temperature,
         streaming=True,
-        request_timeout=120
+        request_timeout=120,
+        max_tokens=max_tokens
     )
