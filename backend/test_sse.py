@@ -4,7 +4,7 @@ import sseclient
 
 def test_chat(prompt, agent_id=None):
     print(f"\n--- Testing Prompt: {prompt} ---")
-    url = "http://localhost:8001/api/chat/stream"
+    url = "http://localhost:8001/api/chat/completions"
     payload = {
         "prompt": prompt,
         "agent_id": agent_id,

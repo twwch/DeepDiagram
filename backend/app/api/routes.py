@@ -161,6 +161,6 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
         logger.error(traceback.format_exc())
         yield f"event: error\ndata: {json.dumps({'message': error_msg})}\n\n"
 
-@router.post("/chat/stream")
-async def chat_stream(request: ChatRequest, db: AsyncSession = Depends(get_session)):
+@router.post("/chat/completions")
+async def chat_completions(request: ChatRequest, db: AsyncSession = Depends(get_session)):
     return StreamingResponse(event_generator(request, db), media_type="text/event-stream")
