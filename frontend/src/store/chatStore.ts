@@ -9,14 +9,19 @@ export const useChatStore = create<ChatState>((set) => ({
     isLoading: false,
     sessionId: null,
     inputImages: [],
+    isStreamingCode: false,
     toast: null, // Simple toast state
     activeStepRef: null,
 
     setInput: (input) => set({ input }),
     setAgent: (agent) => set({ activeAgent: agent }),
     addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
-    setCurrentCode: (code) => set({ currentCode: code }),
+    setCurrentCode: (code: string | ((prev: string) => string)) =>
+        set((state) => ({
+            currentCode: typeof code === 'function' ? code(state.currentCode) : code
+        })),
     setLoading: (loading) => set({ isLoading: loading }),
+    setStreamingCode: (streaming) => set({ isStreamingCode: streaming }),
     setSessionId: (id) => set({ sessionId: id }),
     setMessages: (messages: Message[]) => set({ messages }),
     updateLastMessage: (content) => set((state) => {
@@ -38,6 +43,21 @@ export const useChatStore = create<ChatState>((set) => ({
             if (lastMsg.role === 'assistant') {
                 lastMsg.steps = lastMsg.steps || [];
                 lastMsg.steps.push(step);
+            }
+        }
+        return { messages: msgs };
+    }),
+    updateLastStepContent: (content: string, isStreaming?: boolean, status?: 'running' | 'done') => set((state) => {
+        const msgs = [...state.messages];
+        if (msgs.length > 0) {
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg.role === 'assistant' && lastMsg.steps && lastMsg.steps.length > 0) {
+                const lastStep = lastMsg.steps[lastMsg.steps.length - 1];
+                if (typeof content === 'string') {
+                    lastStep.content = (lastStep.content || '') + content;
+                }
+                if (isStreaming !== undefined) lastStep.isStreaming = isStreaming;
+                if (status !== undefined) lastStep.status = status;
             }
         }
         return { messages: msgs };

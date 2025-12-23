@@ -4,7 +4,7 @@ import * as echarts from 'echarts';
 import type { AgentRef } from './types';
 
 export const ChartsAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, isLoading } = useChatStore();
+    const { currentCode, isStreamingCode } = useChatStore();
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstanceRef = useRef<echarts.ECharts | null>(null);
 
@@ -30,7 +30,7 @@ export const ChartsAgent = forwardRef<AgentRef>((_, ref) => {
     }));
 
     useEffect(() => {
-        if (!currentCode || !chartRef.current || isLoading) return;
+        if (!currentCode || !chartRef.current || isStreamingCode) return;
 
         const chart = echarts.init(chartRef.current);
         chartInstanceRef.current = chart;
@@ -76,7 +76,7 @@ export const ChartsAgent = forwardRef<AgentRef>((_, ref) => {
         } catch (e) {
             console.error("ECharts parse error", e);
         }
-    }, [currentCode, isLoading]);
+    }, [currentCode, isStreamingCode]);
 
     return <div ref={chartRef} className="w-full h-full" />;
 });

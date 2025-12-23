@@ -11,7 +11,7 @@ import type { Message, Step } from '../types';
 
 const AGENTS = [
     {
-        id: 'flow',
+        id: 'flowchart',
         label: 'Flowchart',
         description: 'Architect logic with intelligent auto-layout. Transform complex workflows into clear, readable diagrams with optimized edge routing.',
         features: ['Logic flows', 'Step-by-step processes', 'Conditional routing'],
@@ -32,7 +32,7 @@ const AGENTS = [
         icon: Code2
     },
     {
-        id: 'chart',
+        id: 'charts',
         label: 'Charts',
         description: 'Professional data storytelling. Convert raw data into interactive Bar, Line, Pie, and Gauge charts with sleek animations and responsive designs.',
         features: ['Data visualization', 'Dashboard metrics', 'Trend analysis'],
@@ -66,6 +66,8 @@ export const ChatPanel = () => {
         setInputImages,
         clearInputImages,
         addStepToLastMessage,
+        updateLastStepContent,
+        setStreamingCode,
         setMessages,
         toast,
         clearToast
@@ -282,6 +284,7 @@ export const ChatPanel = () => {
                                     timestamp: Date.now()
                                 });
                             } else if (eventName === 'tool_start') {
+                                // Add tool start step
                                 addStepToLastMessage({
                                     type: 'tool_start',
                                     name: data.tool,
@@ -289,9 +292,26 @@ export const ChatPanel = () => {
                                     status: 'running',
                                     timestamp: Date.now()
                                 });
+                                setCurrentCode(''); // Clear code when a new tool generation starts
+                                // Add a "Result" step that will hold the streaming content and auto-expand
+                                addStepToLastMessage({
+                                    type: 'tool_end',
+                                    name: 'Result',
+                                    content: '',
+                                    status: 'running',
+                                    timestamp: Date.now(),
+                                    isStreaming: true
+                                });
                             } else if (eventName === 'thought') {
                                 thoughtBuffer += data.content;
                                 updateLastMessage(thoughtBuffer);
+                            } else if (eventName === 'tool_code') {
+                                // Direct code stream from a tool
+                                setStreamingCode(true);
+                                // We update the currentCode in real-time to show progress on the canvas
+                                setCurrentCode((prev: string) => prev + data.content);
+                                // Also update the "Result" step in the trace
+                                updateLastStepContent(data.content, true);
                             } else if (eventName === 'tool_args_stream') {
                                 const argsDelta = data.args;
                                 if (argsDelta) {
@@ -321,13 +341,9 @@ export const ChatPanel = () => {
                                     }
                                 }
                             } else if (eventName === 'tool_end') {
-                                addStepToLastMessage({
-                                    type: 'tool_end',
-                                    name: 'Tool Finished',
-                                    content: typeof data.output === 'string' ? data.output : JSON.stringify(data.output),
-                                    status: 'done',
-                                    timestamp: Date.now()
-                                });
+                                // Final result update for the step trace
+                                setStreamingCode(false);
+                                updateLastStepContent('', false, 'done');
                                 if (data.output) {
                                     setCurrentCode(data.output);
                                 }
@@ -550,10 +566,8 @@ export const ChatPanel = () => {
 
                             {/* Hover Tooltip - Positioned Above */}
                             <div className={cn(
-                                "absolute bottom-full mb-3 w-80 max-w-[400px] bg-slate-900 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none shadow-2xl z-50 flex flex-col whitespace-normal border border-white/10 overflow-hidden transform group-hover:translate-y-0 translate-y-2 scale-95 group-hover:scale-100 items-start",
-                                idx === 0 ? "left-0" :
-                                    idx === AGENTS.length - 1 ? "right-0" :
-                                        "left-1/2 -translate-x-1/2"
+                                "absolute bottom-full mb-3 w-56 max-w-[85vw] bg-slate-900 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none shadow-2xl z-50 flex flex-col whitespace-normal border border-white/10 overflow-hidden transform group-hover:translate-y-0 translate-y-2 scale-95 group-hover:scale-100 items-start",
+                                (idx < 2 || idx === 4) ? "left-0" : "right-0"
                             )}>
                                 {/* Header Stripe */}
                                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-500" />
@@ -584,9 +598,7 @@ export const ChatPanel = () => {
                                 {/* Arrow */}
                                 <div className={cn(
                                     "absolute top-full -mt-1 border-[6px] border-transparent border-t-slate-900",
-                                    idx === 0 ? "left-6" :
-                                        idx === AGENTS.length - 1 ? "right-6" :
-                                            "left-1/2 -translate-x-1/2"
+                                    (idx < 2 || idx === 4) ? "left-6" : "right-6"
                                 )}></div>
                             </div>
                         </button>

@@ -121,13 +121,21 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
             if event_type == "on_chat_model_stream":
                 chunk = data.get("chunk")
                 if chunk:
-                     # 1. Content Stream (Thinking)
                     content = chunk.content
                     if content:
-                         full_response_content += content
-                         yield f"event: thought\ndata: {json.dumps({'content': content})}\n\n"
+                        # Determine if this stream is from a tool generating code
+                        # Tool nodes in graph.py are named e.g. "mindmap_tools"
+                        is_tool_stream = node_name.endswith("_tools")
+                        
+                        if is_tool_stream:
+                            # Stream as code, do NOT save to chat history
+                            yield f"event: tool_code\ndata: {json.dumps({'content': content})}\n\n"
+                        else:
+                            # 1. Content Stream (Thinking)
+                            full_response_content += content
+                            yield f"event: thought\ndata: {json.dumps({'content': content})}\n\n"
                     
-                    # 2. Tool Args Stream (Generating)
+                    # 2. Tool Args Stream (Agent calling the tool)
                     if hasattr(chunk, 'tool_call_chunks'):
                         for tool_chunk in chunk.tool_call_chunks or []:
                             if tool_chunk and tool_chunk.get('args'):

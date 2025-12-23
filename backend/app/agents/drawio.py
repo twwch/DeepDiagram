@@ -1,7 +1,9 @@
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.tools import tool
 from app.core.config import settings
 from app.core.llm import get_llm
 from app.state.state import AgentState
+from app.core.context import set_context, get_messages, get_context
 
 llm = get_llm()
 
@@ -24,6 +26,7 @@ Your goal is to interpret the user's request and generate a valid, uncompressed 
 ### Styling Guidelines:
 -   Use standard `style` attributes for shapes (e.g., `style="rounded=1;whiteSpace=wrap;html=1;"` for rectangles).
 -   Use `style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;"` for connectors (edges).
+-   For complex diagrams, ensure spatial layout is clear and nodes do not overlap.
 
 ### Example Output format:
 <mxfile host="Electron" agent="DeepDiagram" version="24.0.0">
@@ -35,44 +38,68 @@ Your goal is to interpret the user's request and generate a valid, uncompressed 
         <mxCell id="2" value="Start" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="340" y="240" width="120" height="60" as="geometry" />
         </mxCell>
-        <!-- More cells... -->
       </root>
     </mxGraphModel>
   </diagram>
 </mxfile>
 
-IMPORTANT: Return ONLY the raw XML string using the `render_drawio_xml` tool. Do not wrap it in markdown code blocks. Do not add explanations.
-The content of `xml_content` MUST be a non-empty, valid Draw.io XML string.
+IMPORTANT: Return ONLY the raw XML string. Do not wrap it in markdown code blocks. Do not add explanations.
 """
 
-from langchain_core.tools import tool
-
 @tool
-def render_drawio_xml(xml_content: str = ""):
+async def render_drawio_xml(instruction: str):
     """
-    Renders the generated Draw.io XML to the user's canvas.
+    Renders a Draw.io XML diagram based on instructions.
     Args:
-        xml_content: The full, valid Draw.io XML string.
+        instruction: Detailed instruction on what diagram to create or modify.
     """
-    if not xml_content:
-        return "Error: No XML content provided."
+    messages = get_messages()
+    context = get_context()
+    current_code = context.get("current_code", "")
     
-    return xml_content
+    # Call LLM to generate the Draw.io XML
+    system_msg = DRAWIO_SYSTEM_PROMPT
+    if current_code:
+        system_msg += f"\n\n### CURRENT DIAGRAM XML\n```xml\n{current_code}\n```\nApply changes to this code."
+
+    prompt = [SystemMessage(content=system_msg)] + messages
+    if instruction:
+        prompt.append(HumanMessage(content=f"Instruction: {instruction}"))
+    
+    response = await llm.ainvoke(prompt)
+    xml_content = response.content
+    
+    if not xml_content:
+        return "Error: No XML content generated."
+    
+    # Strip potential markdown boxes if the LLM ignored the instruction
+    import re
+    xml_content = re.sub(r'^```[a-zA-Z]*\n', '', xml_content)
+    xml_content = re.sub(r'\n```$', '', xml_content)
+    
+    return xml_content.strip()
 
 tools = [render_drawio_xml]
 
 async def drawio_agent(state: AgentState):
     """
-    Agent that generates Draw.io XML based on user input.
+    Agent that orchestrates Draw.io XML generation.
     """
     messages = state.get("messages", [])
+    current_code = state.get("current_code", "")
+    set_context(messages, current_code=current_code)
     
     # Bind tool
     llm_with_tools = llm.bind_tools(tools)
     
-    # System message with original instruction
-    msg = [SystemMessage(content=DRAWIO_SYSTEM_PROMPT + "\n\nCRITICAL: You MUST use the `render_drawio_xml` tool to output your result.")] + messages
+    # System message for orchestration
+    system_prompt = SystemMessage(content="""You are an expert Draw.io Orchestrator.
+    Your goal is to understand the user's request and call the `render_drawio_xml` tool with the appropriate instructions.
     
-    response = await llm_with_tools.ainvoke(msg)
+    Interpret the user's intent to create or modify a complex diagram. 
+    Explain what you are going to draw, then call the tool.
+    """)
+    
+    response = await llm_with_tools.ainvoke([system_prompt] + messages)
     
     return {"messages": [response]}

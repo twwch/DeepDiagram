@@ -40,7 +40,7 @@ const convertToMarkdown = (node: any, level: number = 1): string => {
 };
 
 export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, isLoading, setCurrentCode } = useChatStore();
+    const { currentCode, isStreamingCode, setCurrentCode } = useChatStore();
     const mindmapRef = useRef<HTMLDivElement>(null);
     const mindmapInstanceRef = useRef<any>(null);
     const isInternalUpdate = useRef(false);
@@ -117,21 +117,25 @@ export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
             mindmapInstanceRef.current = me;
         } else {
             mindmapInstanceRef.current.init(data);
+            if (isStreamingCode) {
+                mindmapInstanceRef.current.scaleFit();
+                mindmapInstanceRef.current.toCenter();
+            }
         }
     };
 
     useEffect(() => {
         renderDiagram();
-    }, [currentCode, isLoading]);
+    }, [currentCode, isStreamingCode]);
 
     useEffect(() => {
-        if (!isLoading && mindmapInstanceRef.current && currentCode) {
+        if (!isStreamingCode && mindmapInstanceRef.current && currentCode) {
             setTimeout(() => {
                 mindmapInstanceRef.current?.scaleFit();
                 mindmapInstanceRef.current?.toCenter();
             }, 100);
         }
-    }, [isLoading, currentCode]);
+    }, [isStreamingCode, currentCode]);
 
     return <div ref={mindmapRef} className="w-full h-full" />;
 });

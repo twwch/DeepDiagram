@@ -24,7 +24,8 @@ def router_node(state: AgentState):
         # Explicit mapping
         mappings = {
             "@mindmap": "mindmap",
-            "@flow": "flow",
+            "@flow": "flowchart",
+            "@flowchart": "flowchart",
             "@mermaid": "mermaid",
             "@chart": "charts",
             "@charts": "charts",
@@ -128,7 +129,7 @@ def router_node(state: AgentState):
     if "mindmap" in intent:
         return {"intent": "mindmap"}
     elif "flow" in intent:
-        return {"intent": "flow"}
+        return {"intent": "flowchart"}
     elif "mermaid" in intent:
         return {"intent": "mermaid"}
     elif "chart" in intent:
@@ -144,7 +145,7 @@ def route_decision(state: AgentState) -> Literal["mindmap_agent", "flow_agent", 
     intent = state.get("intent")
     if intent == "mindmap":
         return "mindmap_agent"
-    elif intent == "flow":
+    elif intent == "flowchart":
         return "flow_agent"
     elif intent == "mermaid":
         return "mermaid_agent"

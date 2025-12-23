@@ -1,4 +1,4 @@
-export type AgentType = 'mindmap' | 'flow' | 'charts' | 'drawio' | 'mermaid' | 'general';
+export type AgentType = 'mindmap' | 'flowchart' | 'charts' | 'drawio' | 'mermaid' | 'general';
 
 export interface Step {
     type: 'agent_select' | 'tool_start' | 'tool_end';
@@ -8,6 +8,7 @@ export interface Step {
     timestamp?: number;
     error?: string;
     isError?: boolean;
+    isStreaming?: boolean;
 }
 
 export interface Message {
@@ -30,12 +31,14 @@ export interface ChatState {
     isLoading: boolean;
     sessionId: number | null;
     inputImages: string[]; // Base64 data URLs
+    isStreamingCode: boolean;
 
     setInput: (input: string) => void;
     setAgent: (agent: AgentType) => void;
     addMessage: (message: Message) => void;
-    setCurrentCode: (code: string) => void;
+    setCurrentCode: (code: string | ((prev: string) => string)) => void;
     setLoading: (loading: boolean) => void;
+    setStreamingCode: (streaming: boolean) => void;
     setSessionId: (id: number) => void;
     setMessages: (messages: Message[]) => void;
     updateLastMessage: (content: string) => void;
@@ -49,5 +52,6 @@ export interface ChatState {
     reportError: (error: string) => void;
     reportSuccess: () => void;
     toast: { message: string; type: 'error' | 'success' } | null;
+    updateLastStepContent: (content: string, isStreaming?: boolean, status?: 'running' | 'done') => void;
     clearToast: () => void;
 }

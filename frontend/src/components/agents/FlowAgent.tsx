@@ -67,7 +67,7 @@ const nodeTypes = {
 };
 
 export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, setCurrentCode, isLoading } = useChatStore();
+    const { currentCode, setCurrentCode, isStreamingCode } = useChatStore();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const isInternalUpdate = useRef(false);
@@ -194,7 +194,7 @@ export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
 
     // Sync React Flow state back to currentCode
     useEffect(() => {
-        if (!isLoading && nodes.length > 0) {
+        if (!isStreamingCode && nodes.length > 0) {
             const data = { nodes, edges };
             const json = JSON.stringify(data, null, 2);
             if (json !== currentCode) {
@@ -202,7 +202,7 @@ export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
                 setCurrentCode(json);
             }
         }
-    }, [nodes, edges, isLoading]);
+    }, [nodes, edges, isStreamingCode]);
 
     // Update React Flow from currentCode
     useEffect(() => {
@@ -211,7 +211,7 @@ export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
                 isInternalUpdate.current = false;
                 return;
             }
-            if (isLoading) return; // Wait for completion
+            if (isStreamingCode) return; // Wait for tool completion
 
             try {
                 let jsonStr = currentCode;
@@ -236,7 +236,7 @@ export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
                 // Ignore parsing errors
             }
         }
-    }, [currentCode, isLoading]);
+    }, [currentCode, isStreamingCode]);
 
     return (
         <div className="w-full h-full">

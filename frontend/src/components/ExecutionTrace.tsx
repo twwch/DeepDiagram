@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '../lib/utils';
 import { BrainCircuit, Terminal, CheckCircle, ChevronDown, ChevronRight, Activity, Copy, Play, Check } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
@@ -17,7 +17,26 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult }: {
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
     const { setCurrentCode, setAgent, setActiveStepRef } = useChatStore();
+
+    // Auto-expand when streaming starts, auto-collapse when finished if it's a tool_end/Result
+    useEffect(() => {
+        if (step.isStreaming) {
+            setIsExpanded(true);
+        } else if (step.status === 'done' && step.type === 'tool_end' && step.name === 'Result') {
+            // Give the user a moment to see the final result before collapsing
+            const timer = setTimeout(() => setIsExpanded(false), 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [step.isStreaming, step.status, step.type, step.name]);
+
+    // Auto-scroll to bottom during streaming
+    useEffect(() => {
+        if (step.isStreaming && scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [step.content, step.isStreaming]);
 
     // Hide "general" agent selection
     if (step.type === 'agent_select' && (step.name === 'general' || step.name === 'general_agent')) {
@@ -52,12 +71,31 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult }: {
                 {step.type === 'tool_end' && <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
 
                 <div className="flex-1 font-semibold">
-                    {step.type === 'agent_select' && `Active Agent: ${step.name}`}
+                    {step.type === 'agent_select' && (
+                        <>
+                            Active Agent: {(() => {
+                                const labels: Record<string, string> = {
+                                    'flowchart': 'Flowchart',
+                                    'mindmap': 'Mindmap',
+                                    'mermaid': 'Mermaid',
+                                    'charts': 'Charts',
+                                    'drawio': 'Draw.io'
+                                };
+                                return (step.name && labels[step.name]) || step.name || '';
+                            })()}
+                        </>
+                    )}
                     {step.type === 'tool_start' && `Calling: ${step.name}`}
                     {step.type === 'tool_end' && `Result`}
                     {step.isError && (
                         <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded border border-red-200">
                             Render Failed
+                        </span>
+                    )}
+                    {step.isStreaming && (
+                        <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-600 rounded border border-blue-200 flex items-center gap-1 inline-flex">
+                            <Activity className="w-2.5 h-2.5 animate-pulse" />
+                            Streaming...
                         </span>
                     )}
                 </div>
@@ -78,7 +116,7 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult }: {
                             setActiveStepRef({ messageIndex, stepIndex: associatedResult.index });
                             setCurrentCode(associatedResult.content);
                         }}
-                        className="p-1 px-2 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all shadow-sm ml-2"
+                        className="p-1 px-2 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all shadow-sm ml-2 cursor-pointer"
                         title="Render Result"
                     >
                         <Play className="w-3 h-3 fill-current" />
@@ -107,7 +145,7 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult }: {
                                 </button>
                             </div>
                         )}
-                        <div className="p-2 overflow-x-auto">
+                        <div ref={scrollRef} className="p-2 overflow-y-auto max-h-40 custom-scrollbar">
                             <pre className="text-[10px] leading-tight text-slate-600 whitespace-pre break-words">
                                 {formatContent(step.content)}
                             </pre>

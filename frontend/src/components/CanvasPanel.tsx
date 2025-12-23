@@ -26,7 +26,7 @@ export const CanvasPanel = () => {
         }
     };
 
-    const useZoomWrapper = activeAgent === 'flow' || activeAgent === 'mindmap';
+    const useZoomWrapper = activeAgent === 'flowchart' || activeAgent === 'mindmap';
 
     return (
         <div className="h-full w-full bg-slate-50 relative flex flex-col overflow-hidden">
@@ -65,7 +65,7 @@ export const CanvasPanel = () => {
                     </div>
 
                     <div className="w-full h-full">
-                        {activeAgent === 'flow' && <FlowAgent ref={agentRef} />}
+                        {activeAgent === 'flowchart' && <FlowAgent ref={agentRef} />}
                         {activeAgent === 'mindmap' && <MindmapAgent ref={agentRef} />}
                         {activeAgent === 'charts' && <ChartsAgent ref={agentRef} />}
                         {activeAgent === 'drawio' && <DrawioAgent ref={agentRef} />}

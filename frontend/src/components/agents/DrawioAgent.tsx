@@ -3,7 +3,7 @@ import { useChatStore } from '../../store/chatStore';
 import type { AgentRef } from './types';
 
 export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, setCurrentCode, isLoading } = useChatStore();
+    const { currentCode, setCurrentCode, isStreamingCode } = useChatStore();
     const [iframeReady, setIframeReady] = useState(false);
     const drawioIframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -82,7 +82,7 @@ export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
     }, [currentCode, setCurrentCode]);
 
     useEffect(() => {
-        if (!isLoading && iframeReady && currentCode && drawioIframeRef.current) {
+        if (!isStreamingCode && iframeReady && currentCode && drawioIframeRef.current) {
             let cleanXml = currentCode.replace(/```xml\s?/, '').replace(/```/, '').trim();
             if (cleanXml.startsWith('<')) {
                 const win = drawioIframeRef.current.contentWindow;
@@ -102,7 +102,7 @@ export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
                 }, 1200);
             }
         }
-    }, [iframeReady, currentCode, isLoading]);
+    }, [iframeReady, currentCode, isStreamingCode]);
 
     // Use ui=atlas with explicit sidebar=0 and format=0 which are more reliable
     const drawioUrl = "https://embed.diagrams.net/?" + new URLSearchParams({

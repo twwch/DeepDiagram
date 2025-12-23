@@ -1,66 +1,79 @@
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
-from langgraph.graph import StateGraph, END
 from app.state.state import AgentState
 from app.core.config import settings
 from app.core.llm import get_llm
+from app.core.context import set_context, get_messages, get_context
 
 llm = get_llm()
 
+MINDMAP_SYSTEM_PROMPT = """You are an expert MindMap Generator.
+Your goal is to generate detailed, structured mindmaps using Markdown syntax (Markmap).
+
+### INPUT ANALYSIS
+- Analyze the user's request to understand the core topic and sub-topics.
+- If the user provides a text blob or an image, structure the information hierarchically.
+
+### MARKDOWN RULES (Markmap)
+- **Root Node**: Must start with a single `# Title`.
+- **Branches**: Use bullet points `-` or `*`.
+- **Hierarchy**: Indent bullet points to create sub-branches.
+- **Formatting**: You can use **bold**, *italic*, and [links](url).
+
+### EXECUTION
+- Return the VALID, COMPLETE markdown string.
+- Do not wrap in markdown code blocks.
+- **Expand the content**: Do not just list keywords. Provide short descriptions or sub-points where valuable.
+- **Example**:
+  # Project Plan
+  ## Phase 1
+  - Research included
+    - User interviews
+    - Competitor analysis
+  ## Phase 2
+  - Design
+    - UI Mockups
+"""
+
 @tool
-def create_mindmap(markdown: str):
+async def create_mindmap(instruction: str):
     """
-    Renders a MindMap.
+    Renders a MindMap based on instructions.
     Args:
-        markdown: The complete Markdown content for the mindmap (Markmap syntax). 
-                  Start with a single top-level header (# Title), then use lists (- Item) for branches.
+        instruction: Detailed instruction on what mindmap to create or modify.
     """
+    messages = get_messages()
+    context = get_context()
+    current_code = context.get("current_code", "")
+    
+    # Call LLM to generate the Mindmap code
+    system_msg = MINDMAP_SYSTEM_PROMPT
+    if current_code:
+        system_msg += f"\n\n### CURRENT MINDMAP CODE (Markdown)\n```markdown\n{current_code}\n```\nApply changes to this code."
+
+    prompt = [SystemMessage(content=system_msg)] + messages
+    if instruction:
+        prompt.append(HumanMessage(content=f"Instruction: {instruction}"))
+    
+    response = await llm.ainvoke(prompt)
+    markdown = response.content
+    
     # Simply return the markdown so the frontend can render it.
     return markdown
 
-@tool
-def modify_mindmap(instruction: str, current_markdown: str):
-    """
-    Modifies existing markdown based on instructions.
-    """
-    return f"{current_markdown}\n- [Modified]: {instruction}"
-
-tools = [create_mindmap] # Rely on LLM to generate full new markdown for modifications too
+tools = [create_mindmap]
 llm_with_tools = llm.bind_tools(tools)
 
 async def mindmap_agent_node(state: AgentState):
     messages = state['messages']
+    current_code = state.get("current_code", "")
+    set_context(messages, current_code=current_code)
     
-    system_prompt = SystemMessage(content="""You are an expert MindMap Generator.
-    Your goal is to generate detailed, structured mindmaps using Markdown syntax (Markmap).
-
-    ### INPUT ANALYSIS
-    - Analyze the user's request to understand the core topic and sub-topics.
-    - If the user provides a text blob or an image, structure the information hierarchically.
-
-    ### MARKDOWN RULES (Markmap)
-    - **Root Node**: Must start with a single `# Title`.
-    - **Branches**: Use bullet points `-` or `*`.
-    - **Hierarchy**: Indent bullet points to create sub-branches.
-    - **Formatting**: You can use **bold**, *italic*, and [links](url).
-
-    ### INTERACTIONS
-    - The user can directly edit, add, or delete nodes on the canvas.
-    - If they ask for content changes, generate the FULL updated markdown.
-
-    ### EXECUTION
-    - You MUST call the `create_mindmap` tool.
-    - The argument `markdown` must be the VALID, COMPLETE markdown string.
-    - **Expand the content**: Do not just list keywords. Provide short descriptions or sub-points where valuable.
-    - **Example**:
-      # Project Plan
-      ## Phase 1
-      - Research included
-        - User interviews
-        - Competitor analysis
-      ## Phase 2
-      - Design
-        - UI Mockups
+    system_prompt = SystemMessage(content="""You are an expert MindMap Orchestrator.
+    Your goal is to understand the user's request and call the `create_mindmap` tool with the appropriate instructions.
+    
+    If the user wants a mindmap or structure, use the tool.
+    Provide a clear, detailed instruction to the tool about what to generate.
     """)
     
     response = await llm_with_tools.ainvoke([system_prompt] + messages)
