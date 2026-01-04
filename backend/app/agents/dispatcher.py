@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.core.llm import get_llm
 import re
 
-llm = get_llm(model_name="claude-sonnet-3.7") # Use a fast model for routing, or default to general config
+llm = get_llm() # Use a fast model for routing, or default to general config
 
 def router_node(state: AgentState):
     """
