@@ -53,6 +53,14 @@
 
 ![Mermaid Agent Demo](./images/mermaid.png)
 
+### 🎨 Infographic Agent
+- **Powered by**: `AntV Infographic`
+- **Capabilities**: Creates professional digital infographics, data posters, and visual summaries.
+- **Workflow**: Declarative DSL-based generation with rich built-in templates and high-quality SVG rendering.
+
+![Infographic Agent Demo](./images/20260107-173449.gif)
+
+
 ### 🤖 Intelligent Router & Multimodal
 - **Context-Aware**: Automatically routes requests to the best agent based on intent using a ReAct-based orchestration layer.
 - **Multimodal**: Supports image uploads. Upload a whiteboard photo or a sketch, and DeepDiagram AI will digitize it.
@@ -91,6 +99,7 @@ graph TD
         AgentChart[Data Chart Agent]
         AgentDraw[Draw.io Agent]
         AgentMermaid[Mermaid Agent]
+        AgentInfo[Infographic Agent]
         AgentGen[General Agent]
     end
 
@@ -117,7 +126,7 @@ graph TD
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React 19, Vite, TypeScript, TailwindCSS, Zustand, React Flow, Mind-elixir, react-resizable-panels.
+- **Frontend**: React 19, Vite, TypeScript, TailwindCSS, Zustand, React Flow, Mind-elixir, react-resizable-panels, AntV Infographic.
 - **Backend**: Python 3.10+, FastAPI, LangGraph, LangChain, PostgreSQL (SQLModel), DeepSeek/OpenAI.
 - **Package Manager**: `uv` (Python), `npm` (Node.js).
 

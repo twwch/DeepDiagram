@@ -29,7 +29,8 @@ def router_node(state: AgentState):
             "@mermaid": "mermaid",
             "@chart": "charts",
             "@charts": "charts",
-            "@drawio": "drawio"
+            "@drawio": "drawio",
+            "@infographic": "infographic"
         }
         
         for keyword, intent_name in mappings.items():
@@ -50,6 +51,7 @@ def router_node(state: AgentState):
         "mermaid": "Best for Sequence Diagrams, Class Diagrams, State Diagrams, Gantt Charts, Git Graphs, Entity Relationship Diagrams (ERD), and User Journeys. Use this if user explicitly asks for 'Mermaid'. Output: Mermaid Syntax.",
         "charts": "Best for quantitative data visualization (sales, stats, trends). Output: ECharts (Bar, Line, Pie, etc.).",
         "drawio": "Best for professional, heavy-duty architecture diagrams, cloud infrastructure, and detailed UML. Use this ONLY if user explicitly asks for 'Draw.io' or complex 'architecture'.",
+        "infographic": "Best for infographics, data posters, visual storytelling, process visualization, comparison charts, timelines, and creative data presentation. Use this if user asks for 'information graphics', 'data poster', 'visual summary', or '信息图'.",
         "general": "Handles greetings, questions unrelated to diagramming, or requests that don't fit other categories."
     }
     
@@ -167,12 +169,14 @@ def router_node(state: AgentState):
         return {"intent": "charts"}
     elif "drawio" in intent or "draw.io" in intent or "architecture" in intent or "network" in intent:
         return {"intent": "drawio"} 
+    elif "infographic" in intent or "信息图" in intent or "poster" in intent:
+        return {"intent": "infographic"}
     elif "general" in intent:
         return {"intent": "general"}
     else:
         return {"intent": "general"} # Default to general for safety
 
-def route_decision(state: AgentState) -> Literal["mindmap_agent", "flow_agent", "mermaid_agent", "charts_agent", "drawio_agent", "general_agent"]:
+def route_decision(state: AgentState) -> Literal["mindmap_agent", "flow_agent", "mermaid_agent", "charts_agent", "drawio_agent", "infographic_agent", "general_agent"]:
     intent = state.get("intent")
     if intent == "mindmap":
         return "mindmap_agent"
@@ -184,6 +188,8 @@ def route_decision(state: AgentState) -> Literal["mindmap_agent", "flow_agent", 
         return "charts_agent"
     elif intent == "drawio":
         return "drawio_agent"
+    elif intent == "infographic":
+        return "infographic_agent"
     elif intent == "general":
         return "general_agent"
     return "general_agent"

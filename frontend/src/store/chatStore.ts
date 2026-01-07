@@ -201,16 +201,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 // or if there is no active message (auto-tracking the absolute latest).
                 const currentCanvasState = getCanvasState();
                 const currentAgent = msg.agent || state.activeAgent;
-                const isMindmap = currentAgent === 'mindmap';
+                const isStreamingAgent = currentAgent === 'mindmap' || currentAgent === 'infographic';
                 const assistantMsgs = allMsgs.filter(m => m.role === 'assistant');
                 const isLatestAssistant = assistantMsgs.length > 0 && msg.id === assistantMsgs[assistantMsgs.length - 1].id;
 
                 const isActive = currentCanvasState.activeMessageId === null ||
                     currentCanvasState.activeMessageId === msg.id ||
                     (status === 'done' && isLatestAssistant) ||
-                    (isStreaming && isMindmap && isLatestAssistant);
+                    (isStreaming && isStreamingAgent && isLatestAssistant);
 
-                const shouldSync = status === 'done' || (isStreaming && isMindmap);
+                const shouldSync = status === 'done' || (isStreaming && isStreamingAgent);
 
                 if (isActive && shouldSync && msg.id) {
                     set({ activeMessageId: msg.id }); // Sync store

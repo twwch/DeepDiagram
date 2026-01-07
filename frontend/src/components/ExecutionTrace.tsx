@@ -86,7 +86,8 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
                                     'mindmap': 'Mindmap',
                                     'mermaid': 'Mermaid',
                                     'charts': 'Charts',
-                                    'drawio': 'Draw.io'
+                                    'drawio': 'Draw.io',
+                                    'infographic': 'Infographic'
                                 };
                                 return (step.name && labels[step.name]) || step.name || '';
                             })()}

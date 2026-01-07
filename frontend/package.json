@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@antv/infographic": "^0.2.6",
     "@tailwindcss/postcss": "^4.1.17",
     "clsx": "^2.1.1",
     "echarts": "^6.0.0",
+    "eventemitter3": "^5.0.1",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.556.0",
     "markmap-common": "^0.18.9",

@@ -53,6 +53,13 @@
 
 ![Mermaid 演示](./images/mermaid.png)
 
+### 🎨 信息图智能体 (Infographic Agent)
+- **核心驱动**: `AntV Infographic`
+- **能力**: 智能生成专业的信息图、数据海报和视觉摘要。
+- **工作流**: 基于声明式 DSL 语法生成，内置丰富模板，支持高质量 SVG 渲染。
+
+![Infographic 演示](./images/20260107-173449.gif)
+
 ### 🤖 智能路由与多模态 (Intelligent Router & Multimodal)
 - **上下文感知**: 基于 ReAct 的编排层，根据意图自动将请求路由到最佳智能体。
 - **多模态**: 支持图像上传。上传白板照片或草图，DeepDiagram AI 即可将其数字化。
@@ -91,6 +98,7 @@ graph TD
         AgentChart[数据图表智能体]
         AgentDraw[Draw.io 智能体]
         AgentMermaid[Mermaid 智能体]
+        AgentInfo[信息图智能体]
         AgentGen[通用智能体]
     end
 
@@ -117,7 +125,7 @@ graph TD
 
 ## 🛠 技术栈
 
-- **前端**: React 19, Vite, TypeScript, TailwindCSS, Zustand, React Flow, Mind-elixir, react-resizable-panels。
+- **前端**: React 19, Vite, TypeScript, TailwindCSS, Zustand, React Flow, Mind-elixir, react-resizable-panels, AntV Infographic。
 - **后端**: Python 3.10+, FastAPI, LangGraph, LangChain, PostgreSQL (SQLModel), DeepSeek/OpenAI。
 - **包管理器**: `uv` (Python), `npm` (Node.js)。
 

@@ -7,6 +7,7 @@ import { FlowAgent } from './agents/FlowAgent';
 import { ChartsAgent } from './agents/ChartsAgent';
 import { DrawioAgent } from './agents/DrawioAgent';
 import { MermaidAgent } from './agents/MermaidAgent';
+import { InfographicAgent } from './agents/InfographicAgent';
 import type { AgentRef } from './agents/types';
 
 export const CanvasPanel = () => {
@@ -143,6 +144,17 @@ export const CanvasPanel = () => {
                                     return streamingStep?.content || '';
                                 }
 
+                                // Infographic also supports streaming
+                                if (activeAgent === 'infographic') {
+                                    const hasToolStart = activeMsg.steps?.some(s => s.type === 'tool_start');
+                                    if (!hasToolStart) return '';
+
+                                    const streamingStep = [...(activeMsg.steps || [])].reverse().find(s =>
+                                        (s.type === 'tool_end' || (s.type === 'tool_start' && s.name === 'Result')) && s.content
+                                    );
+                                    return streamingStep?.content || '';
+                                }
+
                                 // 其他 Agent：仅从已完成的 tool_end 步骤提取
                                 const toolEndStep = [...(activeMsg.steps || [])].reverse().find(s =>
                                     s.type === 'tool_end' && s.content && s.status === 'done'
@@ -156,6 +168,7 @@ export const CanvasPanel = () => {
                             if (activeAgent === 'charts') return <ChartsAgent key={`charts-${renderKey}`} ref={agentRef} content={content} />;
                             if (activeAgent === 'drawio') return <DrawioAgent key={`drawio-${renderKey}`} ref={agentRef} content={content} />;
                             if (activeAgent === 'mermaid') return <MermaidAgent key={`mermaid-${renderKey}`} ref={agentRef} content={content} />;
+                            if (activeAgent === 'infographic') return <InfographicAgent key={`infographic-${renderKey}`} ref={agentRef} content={content} />;
                             return null;
                         })()}
 

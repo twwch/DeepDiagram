@@ -65,6 +65,13 @@ const AGENTS = [
         features: ['Cloud architecture', 'Network topology', 'Professional drafting'],
         icon: PenTool
     },
+    {
+        id: 'infographic',
+        label: 'Infographic',
+        description: 'Advanced data storytelling. Create professional infographics, data posters, and visual summaries with creative layouts and rich components.',
+        features: ['Data posters', 'Visual storytelling', 'Creative layouts'],
+        icon: BarChart3
+    },
 ];
 
 export const ChatPanel = () => {

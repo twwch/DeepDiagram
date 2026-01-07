@@ -1,4 +1,4 @@
-export type AgentType = 'mindmap' | 'flowchart' | 'charts' | 'drawio' | 'mermaid' | 'general';
+export type AgentType = 'mindmap' | 'flowchart' | 'charts' | 'drawio' | 'mermaid' | 'infographic' | 'general';
 
 export interface Step {
     type: 'agent_select' | 'tool_start' | 'tool_end';
