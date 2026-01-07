@@ -39,7 +39,6 @@ export interface ChatState {
     messages: Message[];
     input: string;
     activeAgent: AgentType;
-    currentCode: string; // The code currently rendered (markdown, mermaid, or echarts json)
     isLoading: boolean;
     sessionId: number | null;
     sessions: ChatSession[];
@@ -52,7 +51,6 @@ export interface ChatState {
     setInput: (input: string) => void;
     setAgent: (agent: AgentType) => void;
     addMessage: (message: Message) => void;
-    setCurrentCode: (code: string | ((prev: string) => string)) => void;
     setLoading: (loading: boolean) => void;
     setStreamingCode: (streaming: boolean) => void;
     setSessionId: (id: number | null) => void;
@@ -80,4 +78,6 @@ export interface ChatState {
     deleteSession: (sessionId: number) => Promise<void>;
     switchMessageVersion: (messageId: number) => void;
     syncCodeToMessage: (messageId: number) => void;
+    handleSync: (msg: Message) => void;
+    syncToLatest: () => void;
 }

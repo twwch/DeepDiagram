@@ -14,7 +14,6 @@ def router_node(state: AgentState):
     Supports explicit routing via @agent syntax.
     """
     messages = state['messages']
-    current_code = state.get("current_code", "")
     last_message = messages[-1]
     
     # 0. Check for explicit @agent routing
@@ -44,27 +43,6 @@ def router_node(state: AgentState):
                 last_message.content = cleaned
                 print(f"DEBUG ROUTER | Explicit Routing Triggered: {keyword} -> {intent_name} | Cleaned: {last_message.content}")
                 break
-
-    # Determine active context from code
-    active_context = "None"
-    context_code_snippet = "None"
-    if current_code:
-        # Detect Context
-        if '"nodes":' in current_code and '"edges":' in current_code:
-             active_context = "Flowchart (ReactFlow)"
-        elif "series" in current_code and "type" in current_code:
-             active_context = "Chart (ECharts)"
-        elif "# " in current_code and ("- " in current_code or "##" in current_code):
-             active_context = "Mindmap (Markdown)"
-        elif "graph " in current_code or "sequenceDiagram" in current_code or "classDiagram" in current_code:
-             active_context = "Mermaid Diagram"
-        elif "<mxfile" in current_code or "<mxGraphModel" in current_code:
-             active_context = "Draw.io Architecture"
-        
-        # Prepare Snippet (Truncate for efficiency)
-        context_code_snippet = current_code[:500]
-        if len(current_code) > 500:
-            context_code_snippet += "... [TRUNCATED]"
 
     agent_descriptions = {
         "mindmap": "Best for hierarchical structures, brainstorming, outlining ideas, and organizing concepts. Output: Markdown/Markmap.",
@@ -107,12 +85,8 @@ def router_node(state: AgentState):
 
     descriptions_text = "\n".join([f"- '{key}': {desc}" for key, desc in agent_descriptions.items()])
 
-    system_prompt = f"""You are an Intent Router. 
-    Analyze the user's request and the conversation history to classify the intent into one of the categories.
-    
-    CURRENT VISUAL CONTEXT: {active_context}
-    CURRENT CODE SNIPPET (Truncated): 
-    {context_code_snippet}
+    system_prompt = f"""You are an intelligent DeepDiagram Router.
+    Your goal is to analyze the user's intent and route to the most appropriate diagram agent.
     
     AGENT EXECUTION HISTORY (Agents + Tools): 
     {execution_history_text}
@@ -181,7 +155,7 @@ def router_node(state: AgentState):
     response = llm.invoke(msgs_to_invoke)
     intent = response.content.strip().lower()
     
-    print(f"DEBUG ROUTER | Context: {active_context} | Raw Intent: {intent}")
+    print(f"DEBUG ROUTER | Last Agent: {last_active_agent} | Raw Intent: {intent}")
 
     if "mindmap" in intent:
         return {"intent": "mindmap"}

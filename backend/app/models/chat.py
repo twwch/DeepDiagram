@@ -14,7 +14,6 @@ class ChatSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
     
     messages: List["ChatMessage"] = Relationship(back_populates="session")
-    current_code: Optional[str] = Field(default=None)
 
     @field_serializer("created_at", "updated_at")
     def serialize_dt(self, dt: datetime, _info):

@@ -2,9 +2,9 @@
 // This bypasses zustand completely for canvas updates
 
 interface CanvasState {
-    currentCode: string;
     activeAgent: string;
     activeMessageId: number | null;
+    renderKey: number;
 }
 
 declare global {
@@ -16,9 +16,9 @@ declare global {
 // Initialize
 if (typeof window !== 'undefined') {
     window.__canvasState = {
-        currentCode: '',
         activeAgent: 'mindmap',
-        activeMessageId: null
+        activeMessageId: null,
+        renderKey: 0
     };
 }
 
@@ -27,7 +27,8 @@ export const setCanvasState = (state: Partial<CanvasState>) => {
 
     window.__canvasState = {
         ...window.__canvasState,
-        ...state
+        ...state,
+        renderKey: (window.__canvasState.renderKey || 0) + 1
     };
 
     // Notify all listeners
@@ -39,9 +40,9 @@ export const setCanvasState = (state: Partial<CanvasState>) => {
 export const getCanvasState = (): CanvasState => {
     if (typeof window === 'undefined') {
         return {
-            currentCode: '',
             activeAgent: 'mindmap',
-            activeMessageId: null
+            activeMessageId: null,
+            renderKey: 0
         };
     }
     return window.__canvasState;

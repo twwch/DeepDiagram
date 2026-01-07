@@ -1,11 +1,12 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import * as echarts from 'echarts';
-import type { AgentRef } from './types';
+import type { AgentRef, AgentProps } from './types';
 import { AlertCircle } from 'lucide-react';
 
-export const ChartsAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, isStreamingCode } = useChatStore();
+export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
+    const { isStreamingCode } = useChatStore();
+    const currentCode = content;
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstanceRef = useRef<echarts.ECharts | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -13,12 +14,12 @@ export const ChartsAgent = forwardRef<AgentRef>((_, ref) => {
     useImperativeHandle(ref, () => ({
         handleDownload: async (type: 'png' | 'svg') => {
             if (!chartInstanceRef.current) return;
-            const filename = `deepdiagram-charts-${new Date().getTime()}`;
+            const filename = `deepdiagram - charts - ${new Date().getTime()} `;
 
             const downloadFile = (url: string, ext: string) => {
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${filename}.${ext}`;
+                a.download = `${filename}.${ext} `;
                 a.click();
             };
 
@@ -39,7 +40,7 @@ export const ChartsAgent = forwardRef<AgentRef>((_, ref) => {
             }
             return;
         }
-        if (isStreamingCode) return;
+        if (isStreamingCode) return;  // 流式期间不渲染
 
         // 销毁已存在的实例
         if (chartRef.current) {

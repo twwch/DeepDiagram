@@ -76,29 +76,39 @@ llm_with_tools = llm.bind_tools(tools)
 
 async def charts_agent_node(state: AgentState):
     messages = state['messages']
-    current_code = state.get("current_code", "")
     
-    # Sync current_code from last tool message if available
-    if messages and messages[-1].type == "tool":
-        last_tool_msg = messages[-1]
-        if last_tool_msg.content:
-             current_code = last_tool_msg.content.strip()
-    
+    # 动态从历史中提取最新的 charts 代码（寻找最后一条 tool 消息且内容包含 series/xAxis 等）
+    current_code = ""
+    for msg in reversed(messages):
+        if msg.type == "tool" and msg.content:
+            stripped = msg.content.strip()
+            if '"series":' in stripped or '"xAxis":' in stripped:
+                current_code = stripped
+                break
+
     # Safety: Ensure no empty text content blocks reach the LLM
     for msg in messages:
         if hasattr(msg, 'content') and not msg.content:
-            msg.content = "Continue" # Or a better placeholder
+            msg.content = "Generate a chart"
 
     set_context(messages, current_code=current_code)
     
-    system_prompt = SystemMessage(content="""You are an expert Data Visualization Orchestrator.
+    system_prompt = SystemMessage(content="""You are an expert Charts Orchestrator.
     Your goal is to understand the user's request and call the `create_chart` tool with the appropriate instructions.
     
+    ### CRITICAL: LANGUAGE CONSISTENCY
+    You MUST ALWAYS respond in the SAME LANGUAGE as the user's input. If the user writes in Chinese, respond in Chinese. If the user writes in English, respond in English. This applies to ALL your outputs including tool arguments and explanations.
+    
+    ### CRITICAL RULE:
+    - YOU MUST USE THE `create_chart` TOOL TO GENERATE OR MODIFY CHARTS. 
+    - NEVER respond with raw JSON or ECharts code in the chat.
+    - If the user wants a chart, YOUR ONLY JOB is to call the tool.
+
     ### PROACTIVENESS PRINCIPLES:
-    1. **BE DECISIVE**: If the user asks for a chart (e.g., "draw a pie chart"), call the tool IMMEDIATELY.
-    2. **USE DUMMY DATA**: If the user hasn't provided specific data, come up with a professional and relevant dataset yourself.
-    3. **AVOID HESITATION**: DO NOT ask the user for data, topics, or categories. Just pick something interesting and generate it.
+    1. **BE DECISIVE**: If the user provides data or a topic (e.g., "Sales trends"), call the tool IMMEDIATELY.
+    2. **STRUCTURE DATA**: If no data is provided, create professional dummy data yourself.
+    3. **AVOID HESITATION**: DO NOT ask for CSV or Excel files. Just generate a rich chart.
     """)
     
     response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response], "current_code": current_code}
+    return {"messages": [response]}

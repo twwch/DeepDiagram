@@ -3,7 +3,7 @@ import mermaid from 'mermaid';
 import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pan-pinch';
 import { useChatStore } from '../../store/chatStore';
 import { ZoomIn, ZoomOut, Maximize, AlertCircle } from 'lucide-react';
-import type { AgentRef } from './types';
+import type { AgentRef, AgentProps } from './types';
 
 // Initialize mermaid
 mermaid.initialize({
@@ -44,8 +44,9 @@ const ZoomControls = ({ onFit }: { onFit: () => void }) => {
     );
 };
 
-export const MermaidAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, isStreamingCode } = useChatStore();
+export const MermaidAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
+    const { isStreamingCode } = useChatStore();
+    const currentCode = content;
     const containerRef = useRef<HTMLDivElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [svgContent, setSvgContent] = useState<string>('');
@@ -158,7 +159,7 @@ export const MermaidAgent = forwardRef<AgentRef>((_, ref) => {
                 return;
             }
             // 移除 isStreamingCode 检查，总是渲染
-
+            if (isStreamingCode) return;  // 流式期间不渲染
             try {
                 setError(null);
 
@@ -210,7 +211,7 @@ export const MermaidAgent = forwardRef<AgentRef>((_, ref) => {
         };
 
         renderDiagram();
-    }, [currentCode]);
+    }, [currentCode, isStreamingCode]);
 
     useEffect(() => {
         if (!wrapperRef.current || !isLoaded || !dimensions) return;

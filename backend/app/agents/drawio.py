@@ -3,7 +3,7 @@ from langchain_core.tools import tool
 from app.core.config import settings
 from app.core.llm import get_llm
 from app.state.state import AgentState
-from app.core.context import set_context, get_messages, get_context
+from app.core.context import get_messages
 
 llm = get_llm()
 
@@ -55,13 +55,9 @@ async def render_drawio_xml(instruction: str):
         instruction: Detailed instruction on what diagram to create or modify.
     """
     messages = get_messages()
-    context = get_context()
-    current_code = context.get("current_code", "")
     
     # Call LLM to generate the Draw.io XML
     system_msg = DRAWIO_SYSTEM_PROMPT
-    if current_code:
-        system_msg += f"\n\n### CURRENT DIAGRAM XML\n```xml\n{current_code}\n```\nApply changes to this code."
 
     prompt = [SystemMessage(content=system_msg)] + messages
     if instruction:
@@ -82,39 +78,27 @@ async def render_drawio_xml(instruction: str):
 
 tools = [render_drawio_xml]
 
-async def drawio_agent(state: AgentState):
-    """
-    Agent that orchestrates Draw.io XML generation.
-    """
-    messages = state.get("messages", [])
-    current_code = state.get("current_code", "")
+async def drawio_agent_node(state: AgentState):
+    messages = state['messages']
     
-    # Sync current_code from last tool message if available
-    if messages and messages[-1].type == "tool":
-        last_tool_msg = messages[-1]
-        if last_tool_msg.content:
-             current_code = last_tool_msg.content.strip()
-
     # Safety: Ensure no empty text content blocks reach the LLM
     for msg in messages:
         if hasattr(msg, 'content') and not msg.content:
-            msg.content = "Generate architecture diagram"
+            msg.content = "Generate a diagram"
 
-    set_context(messages, current_code=current_code)
-    
-    # Bind tool
     llm_with_tools = llm.bind_tools(tools)
     
-    # System message for orchestration
     system_prompt = SystemMessage(content="""You are an expert Draw.io Orchestrator.
     Your goal is to understand the user's request and call the `render_drawio_xml` tool with the appropriate instructions.
     
+    ### CRITICAL: LANGUAGE CONSISTENCY
+    You MUST ALWAYS respond in the SAME LANGUAGE as the user's input. If the user writes in Chinese, respond in Chinese. If the user writes in English, respond in English. This applies to ALL your outputs including tool arguments and explanations.
+
     ### PROACTIVENESS PRINCIPLES:
-    1. **BE DECISIVE**: If the user wants a complex diagram (e.g., "AWS Architecture"), call the tool IMMEDIATELY.
-    2. **ARCHITECT SYSTEMS**: If the architecture is not specified, design a production-ready system architecture yourself.
-    3. **AVOID HESITATION**: DO NOT ask for components or connections. Just build a high-fidelity diagram.
+    1. **BE DECISIVE**: If the user provides a topic (e.g., "Network architecture"), call the tool IMMEDIATELY.
+    2. **STRUCTURE DATA**: If no architecture is provided, create a professional layout yourself.
+    3. **AVOID HESITATION**: DO NOT ask for node types or positions. Just generate a rich diagram.
     """)
     
     response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    
-    return {"messages": [response], "current_code": current_code}
+    return {"messages": [response]}

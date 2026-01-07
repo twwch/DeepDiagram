@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import { useChatStore } from '../../store/chatStore';
-import type { AgentRef } from './types';
+import type { AgentRef, AgentProps } from './types';
 
-export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, setCurrentCode, isStreamingCode } = useChatStore();
+export const DrawioAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
+    const { isStreamingCode } = useChatStore();
+    const currentCode = content;
     const [iframeReady, setIframeReady] = useState(false);
     const drawioIframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -72,14 +73,15 @@ export const DrawioAgent = forwardRef<AgentRef>((_, ref) => {
             }
             else if (msg.event === 'save' || msg.event === 'autosave') {
                 if (msg.xml) {
-                    setCurrentCode(msg.xml);
+                    // Drawio normally would want to save back, but here we prioritze LLM flow
+                    // console.log('Drawio save event:', msg.xml);
                 }
             }
         };
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [currentCode, setCurrentCode]);
+    }, []);
 
     useEffect(() => {
         if (!isStreamingCode && iframeReady && currentCode && drawioIframeRef.current) {

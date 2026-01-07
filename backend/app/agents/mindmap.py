@@ -72,13 +72,17 @@ llm_with_tools = llm.bind_tools(tools)
 
 async def mindmap_agent_node(state: AgentState):
     messages = state['messages']
-    current_code = state.get("current_code", "")
     
-    # Sync current_code from last tool message if available
-    if messages and messages[-1].type == "tool":
-        last_tool_msg = messages[-1]
-        if last_tool_msg.content:
-             current_code = last_tool_msg.content.strip()
+    # 动态从历史中提取最新的 mindmap 代码（寻找最后一条 tool 消息且内容非空）
+    current_code = ""
+    for msg in reversed(messages):
+        if msg.type == "tool" and msg.content:
+            # 简单判断是否是 mindmap (Markdown 格式) 
+            # 更好的办法是判断 tool_name，但目前 content 已经足够
+            stripped = msg.content.strip()
+            if stripped.startswith("#"):
+                current_code = stripped
+                break
 
     # Safety: Ensure no empty text content blocks reach the LLM
     for msg in messages:
@@ -90,6 +94,9 @@ async def mindmap_agent_node(state: AgentState):
     system_prompt = SystemMessage(content="""You are an expert MindMap Orchestrator.
     Your goal is to understand the user's request and call the `create_mindmap` tool with the appropriate instructions.
     
+    ### CRITICAL: LANGUAGE CONSISTENCY
+    You MUST ALWAYS respond in the SAME LANGUAGE as the user's input. If the user writes in Chinese, respond in Chinese. If the user writes in English, respond in English. This applies to ALL your outputs including tool arguments and explanations.
+    
     ### PROACTIVENESS PRINCIPLES:
     1. **BE DECISIVE**: If the user provides a topic (e.g., "SpaceX"), call the tool IMMEDIATELY.
     2. **STRUCTURE DATA**: If no structure is provided, create a deep, professional hierarchy yourself.
@@ -97,7 +104,7 @@ async def mindmap_agent_node(state: AgentState):
     """)
     
     response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response], "current_code": current_code}
+    return {"messages": [response]}
 
 # Simple ReAct loop for the agent could be implemented here or managed by the top-level graph.
 # For simplicity, we'll define the node here and likely bind it in the main graph.

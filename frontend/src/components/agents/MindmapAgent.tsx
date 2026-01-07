@@ -1,7 +1,7 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { Transformer } from 'markmap-lib';
-import type { AgentRef } from './types';
+import type { AgentRef, AgentProps } from './types';
 import MindElixir from 'mind-elixir';
 import 'mind-elixir/style.css';
 import { AlertCircle } from 'lucide-react';
@@ -40,8 +40,9 @@ const convertToMarkdown = (node: any, level: number = 1): string => {
     return md;
 };
 
-export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, isStreamingCode, setCurrentCode } = useChatStore();
+export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
+    const { isStreamingCode } = useChatStore();
+    const currentCode = content;
     const mindmapRef = useRef<HTMLDivElement>(null);
     const mindmapInstanceRef = useRef<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -110,13 +111,6 @@ export const MindmapAgent = forwardRef<AgentRef>((_, ref) => {
                     me.scaleFit();
                     me.toCenter();
                 }, 0);
-
-                me.bus.addListener('operation', () => {
-                    const newData = me.getData();
-                    const md = convertToMarkdown(newData.nodeData);
-                    isInternalUpdate.current = true;
-                    setCurrentCode(md);
-                });
 
                 mindmapInstanceRef.current = me;
             } else {

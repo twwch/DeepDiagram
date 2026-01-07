@@ -142,11 +142,9 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
     full_messages = formatted_history + [message]
 
     # Combined state for persistence
-    current_active_code = request.context.get("current_code", "")
 
     inputs = {
         "messages": full_messages,
-        "current_code": current_active_code,
     }
     
     full_response_content = ""
@@ -165,30 +163,24 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
             
             # Filter internal Router LLM stream
             if node_name == "router":
-                # We do NOT want to stream the router's internal thought process or result as content
-                # But we DO want to capture its final output (handled below in on_chain_end)
-                if event_type == "on_chain_end" and event["name"] == "router":
-                     pass # Fall through to the handler below
-                else: 
-                     continue
-            
-            # Detect Router Output to notify frontend
-            if event_type == "on_chain_end" and event["name"] == "router":
-                # The router returns {"intent": "..."}
-                output = data.get("output")
-                if output and "intent" in output:
-                    intent = output["intent"]
-                    selected_agent = intent
-                    yield f"event: agent_selected\ndata: {json.dumps({'agent': intent})}\n\n"
-                    
-                    # Also add a pseudo-step for history
-                    accumulated_steps.append({
-                        "type": "agent_select",
-                        "name": intent,
-                        "status": "done",
-                        "timestamp": int(datetime.utcnow().timestamp() * 1000)
-                    })
-            
+                # Detect Router Output to notify frontend
+                if event_type == "on_chain_end":
+                    # The router returns {"intent": "..."}
+                    output = data.get("output")
+                    if output and "intent" in output:
+                        intent = output["intent"]
+                        selected_agent = intent
+                        yield f"event: agent_selected\ndata: {json.dumps({'agent': intent})}\n\n"
+                        
+                        # Also add a pseudo-step for history
+                        accumulated_steps.append({
+                            "type": "agent_select",
+                            "name": intent,
+                            "status": "done",
+                            "timestamp": int(datetime.utcnow().timestamp() * 1000)
+                        })
+                continue # Skip all other events from "router" node
+
             if event_type == "on_chat_model_stream":
                 chunk = data.get("chunk")
                 if chunk:
@@ -246,18 +238,6 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
                             s["status"] = "done"
                             break
 
-                # Identify if this tool output should update the current code
-                # (Simple check: if it looks like JSON or Mermaid or XML)
-                potential_code = output if isinstance(output, str) else json.dumps(output)
-                stripped = potential_code.strip()
-                if (stripped.startswith("{") and stripped.endswith("}")) or \
-                   (stripped.startswith("[") and stripped.endswith("]")) or \
-                   stripped.startswith("graph") or \
-                   stripped.startswith("sequenceDiagram") or \
-                   stripped.startswith("<mxfile") or \
-                   stripped.startswith("#"): # Mindmap
-                    current_active_code = potential_code
-                    yield f"event: code_update\ndata: {json.dumps({'content': potential_code})}\n\n"
 
                 yield f"event: tool_end\ndata: {json.dumps({'output': output})}\n\n"
         
@@ -273,12 +253,6 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
             yield f"event: message_created\ndata: {json.dumps({'id': assistant_msg.id, 'role': 'assistant', 'turn_index': assistant_msg.turn_index})}\n\n"
             
             # 5. Persist Current Code to Session
-            if current_active_code:
-                session = await chat_service.get_session(session_id)
-                if session:
-                    session.current_code = current_active_code
-                    session.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                    await chat_service.session.commit()
             
     except Exception as e:
         import traceback
@@ -305,7 +279,6 @@ async def get_session_history(session_id: int, db: AsyncSession = Depends(get_se
     
     return {
         "messages": history,
-        "current_code": session.current_code if session else None,
         "session": session
     }
 

@@ -1,8 +1,27 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    Send, Loader2, X, Copy, RotateCcw, Check, Command, Square,
-    Workflow, Network, Code2, BarChart3, PenTool, AlertCircle, Paperclip,
-    History, Plus, Trash2, MessageSquare, ChevronDown, ChevronLeft, ChevronRight
+    AlertCircle,
+    BarChart3,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Code2,
+    Command,
+    Copy,
+    History,
+    Loader2,
+    MessageSquare,
+    Network,
+    Paperclip,
+    PenTool,
+    Plus,
+    RotateCcw,
+    Send,
+    Square,
+    Trash2,
+    Workflow,
+    X
 } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 import { cn } from '../lib/utils';
@@ -59,8 +78,6 @@ export const ChatPanel = () => {
         updateLastMessage,
         sessionId,
         setSessionId,
-        currentCode,
-        setCurrentCode,
         setAgent,
         inputImages,
         addInputImage,
@@ -80,7 +97,8 @@ export const ChatPanel = () => {
         switchMessageVersion,
         syncCodeToMessage,
         activeMessageId,
-        setActiveMessageId
+        setActiveMessageId,
+        handleSync
     } = useChatStore();
 
     const isPagingRef = useRef(false);
@@ -230,9 +248,6 @@ export const ChatPanel = () => {
         scrollToBottom();
     }, [messages]);
 
-    const handleSync = (msg: Message) => {
-        // 点击消息卡片不再触发渲染，只有点击 Render 按钮才渲染
-    };
 
     useEffect(() => {
         if (inputRef.current) {
@@ -328,7 +343,7 @@ export const ChatPanel = () => {
             setShowMentions(false);
             clearInputImages();
         }
-        setCurrentCode(''); // Always clear on submittal/retry to ensure canvas is fresh
+        // Content will be derived from messages list
         setStreamingCode(false); // Reset streaming state
 
         const currentMessages = useChatStore.getState().messages;
@@ -370,7 +385,7 @@ export const ChatPanel = () => {
                     prompt: promptToUse,
                     images: imagesToUse,
                     session_id: sessionId,
-                    context: { current_code: currentCode },
+                    context: {},
                     parent_id: effectiveParentId,
                     is_retry: isRetry
                 }),
@@ -427,6 +442,7 @@ export const ChatPanel = () => {
 
                                         // Update activeMessageId if it's the assistant
                                         let activeId = state.activeMessageId;
+                                        // 所有 assistant 消息都即时激活
                                         if (data.role === 'assistant') {
                                             activeId = data.id;
                                         }
@@ -478,7 +494,6 @@ export const ChatPanel = () => {
                                     status: 'running',
                                     timestamp: Date.now()
                                 });
-                                setCurrentCode(''); // Clear code when a new tool generation starts
                                 // Add a "Result" step that will hold the streaming content and auto-expand
                                 addStepToLastMessage({
                                     type: 'tool_end',
@@ -494,16 +509,15 @@ export const ChatPanel = () => {
                             } else if (eventName === 'tool_code') {
                                 // Direct code stream from a tool
                                 setStreamingCode(true);
-                                // We update the currentCode in real-time to show progress on the canvas
-                                setCurrentCode((prev: string) => prev + data.content);
                                 // Also update the "Result" step in the trace
-                                updateLastStepContent(data.content, true);
+                                updateLastStepContent(data.content, true, 'running', undefined, true);
                             } else if (eventName === 'tool_args_stream') {
                                 const argsDelta = data.args;
                                 if (argsDelta) {
                                     toolArgsBuffer += argsDelta;
-                                    // Robustly match the first string argument value, regardless of key name (e.g., content, code, markdown, xml_content, option_str)
-                                    // Regex explanation: Look for a key followed by a colon and a quote. Then capture until the end if no closing quote, or handle escaped quotes.
+                                    // Extract content from tool arguments for agents that support streaming
+                                    // NOTE: Mindmap uses 'instruction' which is the user request, NOT the actual markdown.
+                                    // Mindmap content comes from tool_end only. Do NOT extract from tool_args_stream for mindmap.
                                     const contentMatch = toolArgsBuffer.match(/"(content|description|data|markdown|code|xml_content|option_str)"\s*:\s*"/);
                                     if (contentMatch) {
                                         const startIdx = contentMatch.index! + contentMatch[0].length;
@@ -511,41 +525,15 @@ export const ChatPanel = () => {
                                         while (endIdx !== -1 && toolArgsBuffer[endIdx - 1] === '\\') {
                                             endIdx = toolArgsBuffer.indexOf('"', endIdx + 1);
                                         }
-                                        if (endIdx !== -1) {
-                                            let partialContent = toolArgsBuffer.substring(startIdx, endIdx)
-                                                .replace(/\\n/g, '\n')
-                                                .replace(/\\"/g, '"')
-                                                .replace(/\\\\/g, '\\');
-
-                                            // Only live-stream mindmaps as they handle partial markdown well.
-                                            // Others (Mermaid, Charts, Flow, Drawio) crash on partial syntax.
-                                            if (useChatStore.getState().activeAgent === 'mindmap') {
-                                                setCurrentCode(partialContent);
-                                            }
-                                        } else {
-                                            let partialContent = toolArgsBuffer.substring(startIdx)
-                                                .replace(/\\n/g, '\n')
-                                                .replace(/\\"/g, '"')
-                                                .replace(/\\\\/g, '\\');
-
-                                            if (useChatStore.getState().activeAgent === 'mindmap') {
-                                                setCurrentCode(partialContent);
-                                            }
-                                        }
+                                        // Don't stream tool_args for mindmap - it only contains instruction, not markdown
+                                        // Other agents can use this if they have actual code in their args
                                     }
                                 }
                             } else if (eventName === 'tool_end') {
-                                // Final result update for the step trace
                                 setStreamingCode(false);
-                                updateLastStepContent('', false, 'done');
-                                if (data.output) {
-                                    setCurrentCode(data.output);
-                                }
+                                updateLastStepContent(data.output, false, 'done');
                             } else if (eventName === 'code_update') {
-                                // Explicit trigger for final diagram rendering
-                                if (data.content) {
-                                    setCurrentCode(data.content);
-                                }
+                                // Handled by dynamic derivation from history
                             }
                         } catch (jsonErr) {
                             console.error("JSON Parse error", jsonErr);
@@ -562,7 +550,7 @@ export const ChatPanel = () => {
             }
         } finally {
             setLoading(false);
-            setStreamingCode(false); // Final safety reset
+            setStreamingCode(false);
             abortControllerRef.current = null;
         }
     };
@@ -694,7 +682,8 @@ export const ChatPanel = () => {
                     </div>
                 )}
                 {messages.map((msg, idx) => {
-                    const switchVersion = (msg: Message, delta: number) => {
+                    const switchVersion = (e: React.MouseEvent, msg: Message, delta: number) => {
+                        e.stopPropagation(); // 防止点击穿透
                         if (isLoading) return; // Prevent switching while loading
                         const turnIndex = msg.turn_index || 0;
                         const siblings = allMessages.filter(m => (m.turn_index || 0) === turnIndex && m.role === msg.role);
@@ -737,7 +726,6 @@ export const ChatPanel = () => {
                             msg.role === 'user' ? "items-end" : "items-start"
                         )}>
                             <div
-                                onClick={() => handleSync(msg)}
                                 className={cn(
                                     "max-w-[85%] rounded-2xl p-4 shadow-sm relative transition-all duration-300",
                                     msg.role === 'user'
@@ -746,15 +734,20 @@ export const ChatPanel = () => {
                                 )}
                             >
                                 {msg.steps && msg.steps.length > 0 && (
-                                    <ExecutionTrace steps={msg.steps} messageIndex={idx} onRetry={() => handleRetry(idx)} />
+                                    <ExecutionTrace steps={msg.steps} messageIndex={idx} onRetry={() => handleRetry(idx)} onSync={() => handleSync(msg)} />
                                 )}
                                 <ReactMarkdown
                                     components={{
-                                        code: ({ node, ...props }) => <code className="bg-black/10 rounded px-1 py-0.5 whitespace-pre-wrap break-words" {...props} />,
-                                        pre: ({ node, ...props }) => <pre className="bg-slate-900 text-slate-50 p-3 rounded-lg overflow-x-auto text-xs my-2 max-w-full custom-scrollbar" {...props} />
+                                        code: ({ node, ...props }) => <code onClick={(e) => e.stopPropagation()} className="bg-black/10 rounded px-1 py-0.5 whitespace-pre-wrap break-words" {...props} />,
+                                        pre: ({ node, ...props }) => <pre onClick={(e) => e.stopPropagation()} className="bg-slate-900 text-slate-50 p-3 rounded-lg overflow-x-auto text-xs my-2 max-w-full custom-scrollbar" {...props} />
                                     }}
                                 >
-                                    {msg.content.split('\n').filter(line => !line.includes('[Error')).join('\n')}
+                                    {msg.content
+                                        .split('### Execution Trace:')[0]  // 过滤掉 Execution Trace 部分
+                                        .split('\n')
+                                        .filter(line => !line.includes('[Error'))
+                                        .join('\n')
+                                        .trim()}
                                 </ReactMarkdown>
                                 {isGenerating && (
                                     <div className={cn(
@@ -777,7 +770,7 @@ export const ChatPanel = () => {
                                     <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100/50">
                                         <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-100">
                                             <button
-                                                onClick={() => switchVersion(msg, -1)}
+                                                onClick={(e) => switchVersion(e, msg, -1)}
                                                 disabled={isLoading}
                                                 className="p-1 hover:bg-white hover:text-blue-600 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                                             >
@@ -787,7 +780,7 @@ export const ChatPanel = () => {
                                                 {versionInfo?.current} / {versionInfo?.total}
                                             </span>
                                             <button
-                                                onClick={() => switchVersion(msg, 1)}
+                                                onClick={(e) => switchVersion(e, msg, 1)}
                                                 disabled={isLoading}
                                                 className="p-1 hover:bg-white hover:text-blue-600 rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                                             >
@@ -802,7 +795,7 @@ export const ChatPanel = () => {
                                 "opacity-0 group-hover:opacity-100"
                             )}>
                                 <button
-                                    onClick={() => handleCopy(msg, idx)}
+                                    onClick={(e) => { e.stopPropagation(); handleCopy(msg, idx); }}
                                     disabled={isLoading}
                                     className="p-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                                     title="Copy content"
@@ -815,7 +808,7 @@ export const ChatPanel = () => {
                                 </button>
                                 {msg.role === 'assistant' && (
                                     <button
-                                        onClick={() => handleRetry(idx)}
+                                        onClick={(e) => { e.stopPropagation(); handleRetry(idx); }}
                                         disabled={isLoading}
                                         className="p-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                                         title="Retry/Regenerate"

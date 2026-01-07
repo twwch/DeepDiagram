@@ -8,19 +8,21 @@ interface ExecutionTraceProps {
     steps: Step[];
     messageIndex: number;
     onRetry?: (index: number) => void;
+    onSync?: () => void;
 }
 
-const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry }: {
+const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, onSync }: {
     step: Step;
     activeAgent?: string;
     messageIndex: number;
     associatedResult?: { content: string; index: number };
     onRetry?: (index: number) => void;
+    onSync?: () => void;
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const { setCurrentCode, setAgent, setActiveStepRef, isLoading } = useChatStore();
+    const { setAgent, setActiveStepRef, isLoading } = useChatStore();
 
     // Auto-expand when streaming starts, auto-collapse when finished if it's a tool_end/Result
     useEffect(() => {
@@ -66,7 +68,10 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry }
         )}>
             <div
                 className={cn("flex items-center gap-2 p-2", hasContent && "cursor-pointer hover:bg-black/5")}
-                onClick={() => hasContent && setIsExpanded(!isExpanded)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (hasContent) setIsExpanded(!isExpanded);
+                }}
             >
                 {step.type === 'agent_select' && <BrainCircuit className="w-3.5 h-3.5 text-purple-600" />}
                 {step.type === 'tool_start' && <Terminal className="w-3.5 h-3.5 text-blue-600" />}
@@ -116,8 +121,8 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry }
                                 if (activeAgent) {
                                     setAgent(activeAgent as any);
                                 }
-                                setActiveStepRef({ messageIndex, stepIndex: associatedResult.index });
-                                setCurrentCode(associatedResult.content);
+                                if (onSync) onSync();
+                                // Result will be extracted from message history
                             }}
                             disabled={isLoading}
                             className="p-1 px-2 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -176,7 +181,7 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry }
     );
 };
 
-export const ExecutionTrace = ({ steps, messageIndex, onRetry }: ExecutionTraceProps) => {
+export const ExecutionTrace = ({ steps, messageIndex, onRetry, onSync }: ExecutionTraceProps) => {
     // Determine if we should show the block at all (if all steps are hidden 'general', don't show info)
     const hasVisibleSteps = steps.some(s => !(s.type === 'agent_select' && (s.name === 'general' || s.name === 'general_agent')));
 
@@ -219,9 +224,9 @@ export const ExecutionTrace = ({ steps, messageIndex, onRetry }: ExecutionTraceP
                                         break;
                                     }
                                 }
-                                return <StepItem key={idx} step={step} activeAgent={lastAgent} messageIndex={messageIndex} associatedResult={associatedResult} onRetry={onRetry} />;
+                                return <StepItem key={idx} step={step} activeAgent={lastAgent} messageIndex={messageIndex} associatedResult={associatedResult} onRetry={onRetry} onSync={onSync} />;
                             }
-                            return <StepItem key={idx} step={step} activeAgent={lastAgent} messageIndex={messageIndex} onRetry={onRetry} />;
+                            return <StepItem key={idx} step={step} activeAgent={lastAgent} messageIndex={messageIndex} onRetry={onRetry} onSync={onSync} />;
                         });
                     })()}
                 </div>

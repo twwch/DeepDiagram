@@ -6,7 +6,7 @@ from app.agents.mindmap import mindmap_agent_node as mindmap_agent, tools as min
 from app.agents.flow import flow_agent_node as flow_agent, tools as flow_tools
 from app.agents.mermaid import mermaid_agent_node as mermaid_agent, tools as mermaid_tools
 from app.agents.charts import charts_agent_node as charts_agent, tools as charts_tools
-from app.agents.drawio import drawio_agent, tools as drawio_tools
+from app.agents.drawio import drawio_agent_node as drawio_agent, tools as drawio_tools
 from app.agents.general import general_agent_node as general_agent
 
 # Define the graph

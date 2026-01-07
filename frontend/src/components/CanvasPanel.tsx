@@ -10,32 +10,28 @@ import { MermaidAgent } from './agents/MermaidAgent';
 import type { AgentRef } from './agents/types';
 
 export const CanvasPanel = () => {
+    const [renderKey, setRenderKey] = useState(0);
+
+    // 直接从 store 获取核心状态，确保永远保持最新且一致
     const activeAgent = useChatStore(state => state.activeAgent);
-    const currentCode = useChatStore(state => state.currentCode);
-    const isLoading = useChatStore(state => state.isLoading);
     const activeMessageId = useChatStore(state => state.activeMessageId);
     const allMessages = useChatStore(state => state.allMessages);
+    const isLoading = useChatStore(state => state.isLoading);
     const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-    const [renderKey, setRenderKey] = useState(0);
+
     const agentRef = useRef<AgentRef>(null);
 
-    // 当 activeMessageId 或 currentCode 变化时，强制重新挂载组件
+    // 监听全局画布状态变化，实现瞬时同步
     useEffect(() => {
-        setRenderKey(prev => prev + 1);
-    }, [activeMessageId, currentCode]);
+        const handleStateChange = (e: any) => {
+            const state = e.detail;
+            // 外部事件主要负责触发强制重绘 (renderKey)
+            setRenderKey(state.renderKey || Date.now());
+        };
 
-    // 计算当前消息的版本号
-    const getCurrentVersionIndex = () => {
-        if (!activeMessageId) return 0;
-        const activeMsg = allMessages.find(m => m.id === activeMessageId);
-        if (!activeMsg) return 0;
-        const turnIndex = activeMsg.turn_index || 0;
-        const siblings = allMessages.filter(m => (m.turn_index || 0) === turnIndex && m.role === activeMsg.role);
-        const currentIdx = siblings.findIndex(s => s.id === activeMessageId);
-        return currentIdx >= 0 ? currentIdx : 0;
-    };
-
-    const versionIndex = getCurrentVersionIndex();
+        window.addEventListener('canvas-state-change', handleStateChange);
+        return () => window.removeEventListener('canvas-state-change', handleStateChange);
+    }, []);
 
     const handleDownload = async (type: 'png' | 'svg') => {
         if (agentRef.current) {
@@ -51,16 +47,24 @@ export const CanvasPanel = () => {
     };
 
     const handleRegenerate = () => {
-        // Find the last assistant message in the store
-        const { messages } = useChatStore.getState();
+        const { messages, syncToLatest } = useChatStore.getState();
+        const allMsgs = useChatStore.getState().allMessages;
+        if (allMsgs.length === 0) return;
+
+        // 获取绝对最后一条 assistant 消息
+        const assistantMsgs = allMsgs.filter(m => m.role === 'assistant');
+        const absoluteLatestMsg = assistantMsgs[assistantMsgs.length - 1];
+
+        // 如果当前活跃消息不是绝对最后一条，则先“回到最新”
+        if (absoluteLatestMsg && activeMessageId !== absoluteLatestMsg.id) {
+            syncToLatest();
+            return;
+        }
+
+        // 已经是最新，触发重新生成
         const lastAssistantIdx = [...messages].reverse().findIndex(m => m.role === 'assistant');
         if (lastAssistantIdx !== -1) {
             const actualIdx = messages.length - 1 - lastAssistantIdx;
-            // The handleRetry logic is in ChatPanel. We could move it to store,
-            // but for now, we can trigger it via a custom event or store action.
-            // Since we want to be clean, let's just use the existing handleRetry if possible.
-            // Wait, I don't have handleRetry here. 
-            // Better: use a custom event or a store-managed retry trigger.
             window.dispatchEvent(new CustomEvent('deepdiagram-retry', { detail: { index: actualIdx } }));
         }
     };
@@ -74,7 +78,7 @@ export const CanvasPanel = () => {
                 <div className="w-full h-full relative">
                     {/* Toolbar */}
                     <div className="absolute top-4 right-4 z-10 flex flex-row gap-4 items-center p-2">
-                        {/* Download Button (File Icon) */}
+                        {/* Download Button */}
                         <div className="relative">
                             <button
                                 onClick={() => !isLoading && setShowDownloadMenu(!showDownloadMenu)}
@@ -119,13 +123,43 @@ export const CanvasPanel = () => {
                     </div>
 
                     <div className="w-full h-full">
-                        {activeAgent === 'flowchart' && <FlowAgent key={`flow-${renderKey}`} ref={agentRef} />}
-                        {activeAgent === 'mindmap' && <MindmapAgent key={`mindmap-${renderKey}`} ref={agentRef} />}
-                        {activeAgent === 'charts' && <ChartsAgent key={`charts-${renderKey}`} ref={agentRef} />}
-                        {activeAgent === 'drawio' && <DrawioAgent key={`drawio-${renderKey}`} ref={agentRef} />}
-                        {activeAgent === 'mermaid' && <MermaidAgent key={`mermaid-${renderKey}`} ref={agentRef} />}
+                        {(() => {
+                            // 当 activeMessageId 为 null 时（流式期间），回退到最新的 assistant 消息
+                            const activeMsg = activeMessageId
+                                ? allMessages.find(m => String(m.id) === String(activeMessageId))
+                                : allMessages.filter(m => m.role === 'assistant').slice(-1)[0] || null;
 
-                        {!currentCode && (
+                            const getCode = () => {
+                                if (!activeMsg) return '';
+
+                                // Mindmap 特殊逻辑：只有 tool_start 后才开始渲染
+                                if (activeAgent === 'mindmap') {
+                                    const hasToolStart = activeMsg.steps?.some(s => s.type === 'tool_start');
+                                    if (!hasToolStart) return '';  // 工具还没开始，不渲染
+
+                                    const streamingStep = [...(activeMsg.steps || [])].reverse().find(s =>
+                                        (s.type === 'tool_end' || (s.type === 'tool_start' && s.name === 'Result')) && s.content
+                                    );
+                                    return streamingStep?.content || '';
+                                }
+
+                                // 其他 Agent：仅从已完成的 tool_end 步骤提取
+                                const toolEndStep = [...(activeMsg.steps || [])].reverse().find(s =>
+                                    s.type === 'tool_end' && s.content && s.status === 'done'
+                                );
+                                return toolEndStep?.content || '';
+                            };
+                            const content = getCode();
+
+                            if (activeAgent === 'flowchart') return <FlowAgent key={`flow-${renderKey}`} ref={agentRef} content={content} />;
+                            if (activeAgent === 'mindmap') return <MindmapAgent key={`mindmap-${renderKey}`} ref={agentRef} content={content} />;
+                            if (activeAgent === 'charts') return <ChartsAgent key={`charts-${renderKey}`} ref={agentRef} content={content} />;
+                            if (activeAgent === 'drawio') return <DrawioAgent key={`drawio-${renderKey}`} ref={agentRef} content={content} />;
+                            if (activeAgent === 'mermaid') return <MermaidAgent key={`mermaid-${renderKey}`} ref={agentRef} content={content} />;
+                            return null;
+                        })()}
+
+                        {!activeMessageId && !isLoading && (
                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                                 <p>No diagram generated yet.</p>
                             </div>

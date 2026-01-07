@@ -18,7 +18,7 @@ import { cn } from '../../lib/utils';
 import { Play, Flag, Box, HelpCircle, AlertCircle } from 'lucide-react';
 import 'reactflow/dist/style.css';
 import { toPng, toSvg } from 'html-to-image';
-import type { AgentRef } from './types';
+import type { AgentRef, AgentProps } from './types';
 
 // Global styles to strip default React Flow node styling
 const nodeResetStyles = `
@@ -213,8 +213,9 @@ const nodeTypes = {
     default: ProcessNode,
 };
 
-export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
-    const { currentCode, setCurrentCode, isStreamingCode } = useChatStore();
+export const FlowAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
+    const { isStreamingCode } = useChatStore();
+    const currentCode = content;
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [error, setError] = useState<string | null>(null);
@@ -310,20 +311,7 @@ export const FlowAgent = forwardRef<AgentRef>((_, ref) => {
         }
     }));
 
-    // Sync React Flow state back to currentCode
-    useEffect(() => {
-        // Only sync back if we are NOT streaming AND we have a base to sync back to (currentCode is not empty)
-        // This prevents the "ghost nodes" from a previous turn from overwriting the new 'currentCode'
-        const code = useChatStore.getState().currentCode;
-        if (!isStreamingCode && nodes.length > 0 && code) {
-            const data = { nodes, edges };
-            const json = JSON.stringify(data, null, 2);
-            if (json !== code) {
-                isInternalUpdate.current = true;
-                setCurrentCode(json);
-            }
-        }
-    }, [nodes, edges, isStreamingCode]);
+    // Sync logic removed as currentCode is now derived from history
 
     // Update React Flow from currentCode
     useEffect(() => {

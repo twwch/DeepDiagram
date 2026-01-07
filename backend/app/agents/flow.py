@@ -80,13 +80,15 @@ llm_with_tools = llm.bind_tools(tools)
 
 async def flow_agent_node(state: AgentState):
     messages = state['messages']
-    current_code = state.get("current_code", "")
     
-    # Sync current_code from last tool message if available
-    if messages and messages[-1].type == "tool":
-        last_tool_msg = messages[-1]
-        if last_tool_msg.content:
-             current_code = last_tool_msg.content.strip()
+    # 动态从历史中提取最新的 flowchart 代码（寻找最后一条 tool 消息且内容包含 nodes/edges）
+    current_code = ""
+    for msg in reversed(messages):
+        if msg.type == "tool" and msg.content:
+            stripped = msg.content.strip()
+            if '"nodes":' in stripped and '"edges":' in stripped:
+                current_code = stripped
+                break
 
     # Safety: Ensure no empty text content blocks reach the LLM
     for msg in messages:
@@ -96,13 +98,16 @@ async def flow_agent_node(state: AgentState):
     set_context(messages, current_code=current_code)
     
     system_prompt = SystemMessage(content="""You are an expert Flowchart Orchestrator.
-    Your goal is to understand the user's request and call the `create_flow` tool with the appropriate instructions.
+    Your goal is to understand the user's request and call the `create_flowchart` tool with the appropriate instructions.
+    
+    ### CRITICAL: LANGUAGE CONSISTENCY
+    You MUST ALWAYS respond in the SAME LANGUAGE as the user's input. If the user writes in Chinese, respond in Chinese. If the user writes in English, respond in English. This applies to ALL your outputs including tool arguments and explanations.
     
     ### PROACTIVENESS PRINCIPLES:
-    1. **BE DECISIVE**: If the user asks for a flowchart (e.g., "login flow"), call the tool IMMEDIATELY.
-    2. **EXPAND REQUIREMENTS**: If details are missing, invent a professional and complete business process yourself.
-    3. **AVOID HESITATION**: DO NOT ask for steps or conditions. Just build a comprehensive flowchart based on the topic.
+    1. **BE DECISIVE**: If the user provides a process or logic, call the tool IMMEDIATELY.
+    2. **STRUCTURE DATA**: If no steps are provided, create a professional flow yourself.
+    3. **AVOID HESITATION**: DO NOT ask for steps or boxes. Just generate a rich flowchart.
     """)
     
     response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response], "current_code": current_code}
+    return {"messages": [response]}
