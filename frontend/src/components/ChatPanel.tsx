@@ -35,42 +35,54 @@ const AGENTS = [
         label: 'Flowchart',
         description: 'Architect logic with intelligent auto-layout. Transform complex workflows into clear, readable diagrams with optimized edge routing.',
         features: ['Logic flows', 'Step-by-step processes', 'Conditional routing'],
-        icon: Workflow
+        icon: Workflow,
+        color: 'indigo',
+        demoInput: '@flowchart draw a professional enterprise-grade CI/CD pipeline for a high-traffic e-commerce platform, including auto-scaling, blue-green deployment, and canary testing gates.'
     },
     {
         id: 'mindmap',
         label: 'Mindmap',
         description: 'Infinite canvas for visual thinking. Map out hierarchical structures, brainstorm ideas, and organize messy concepts into clean, expandable trees.',
         features: ['Idea mapping', 'Knowledge structure', 'Brainstorming'],
-        icon: Network
+        icon: Network,
+        color: 'amber',
+        demoInput: '@mindmap create a 5-level deep strategic mindmap for a global expansion plan of an AI startup, covering Product/Market fit, Localization, Scaling, and Competitive moats.'
     },
     {
         id: 'mermaid',
         label: 'Mermaid',
         description: 'Industrial-strength text-to-diagram engine. Generate Sequence, Gantt, Class, and ER diagrams using clean Markdown-inspired syntax.',
         features: ['Sequence diagrams', 'Gantt charts', 'Text-to-visual'],
-        icon: Code2
+        icon: Code2,
+        color: 'emerald',
+        demoInput: '@mermaid draw a complex sequence diagram for a multi-factor authentication flow involving a mobile app, auth server, resource provider, and session database.'
     },
     {
         id: 'charts',
         label: 'Charts',
         description: 'Professional data storytelling. Convert raw data into interactive Bar, Line, Pie, and Gauge charts with sleek animations and responsive designs.',
         features: ['Data visualization', 'Dashboard metrics', 'Trend analysis'],
-        icon: BarChart3
+        icon: BarChart3,
+        color: 'rose',
+        demoInput: '@charts draw a professional financial dashboard showing the last 12 months of SaaS performance metrics including MRR growth, Churn rate vs Acquisition cost, and LTV projections.'
     },
     {
         id: 'drawio',
         label: 'Draw.io',
         description: 'The ultimate canvas for precision engineering. Design cloud architectures, network topologies, and blueprint-level technical diagrams.',
         features: ['Cloud architecture', 'Network topology', 'Professional drafting'],
-        icon: PenTool
+        icon: PenTool,
+        color: 'blue',
+        demoInput: '@drawio architect a high-availability AWS cloud system with Multi-AZ VPC, subnets, ELB, EC2 auto-scaling groups, and a RDS Aurora cluster with read replicas.'
     },
     {
         id: 'infographic',
         label: 'Infographic',
         description: 'Advanced data storytelling. Create professional infographics, data posters, and visual summaries with creative layouts and rich components.',
         features: ['Data posters', 'Visual storytelling', 'Creative layouts'],
-        icon: BarChart3
+        icon: BarChart3,
+        color: 'violet',
+        demoInput: '@infographic draw a professional infographic roadmap for the future of Generative AI (2024-2030), showing key milestones, societal impacts, and industry shifts.'
     },
 ];
 
@@ -680,11 +692,101 @@ export const ChatPanel = () => {
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-4">
-                        <div className="p-4 bg-slate-100 rounded-full">
-                            <Send className="w-8 h-8 text-slate-300" />
+                    <div className="flex flex-col items-center justify-center min-h-[600px] text-slate-400 space-y-12 py-20 relative overflow-hidden">
+                        {/* Mesh Gradient Background Decorative Elements */}
+                        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-400/10 rounded-full blur-[100px] -z-10 animate-pulse" />
+                        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] -z-10" />
+
+                        <div className="flex flex-col items-center space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                            <div className="relative group">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
+                                <div className="relative p-5 bg-white rounded-2xl shadow-2xl border border-slate-100 flex items-center justify-center">
+                                    <Send className="w-10 h-10 text-blue-600 animate-bounce" />
+                                </div>
+                            </div>
+                            <div className="text-center space-y-2">
+                                <h2 className="text-3xl font-black tracking-tight text-slate-800 bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 bg-clip-text">
+                                    Design Your Vision
+                                </h2>
+                                <p className="text-slate-400 font-medium max-w-sm mx-auto leading-relaxed">
+                                    Unlock professional diagrams with AI-powered consulting.
+                                    Select a showcase below to begin.
+                                </p>
+                            </div>
                         </div>
-                        <p>Start a conversation to create visuals.</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 max-w-6xl w-full px-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
+                            {AGENTS.map((agent) => {
+                                const colorMap: Record<string, string> = {
+                                    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white',
+                                    amber: 'bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-600 group-hover:text-white',
+                                    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white',
+                                    rose: 'bg-rose-50 text-rose-600 border-rose-100 group-hover:bg-rose-600 group-hover:text-white',
+                                    blue: 'bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-600 group-hover:text-white',
+                                    violet: 'bg-violet-50 text-violet-600 border-violet-100 group-hover:bg-violet-600 group-hover:text-white',
+                                };
+                                const accentMap: Record<string, string> = {
+                                    indigo: 'text-indigo-600',
+                                    amber: 'text-amber-600',
+                                    emerald: 'text-emerald-600',
+                                    rose: 'text-rose-600',
+                                    blue: 'text-blue-600',
+                                    violet: 'text-violet-600',
+                                };
+
+                                return (
+                                    <button
+                                        key={agent.id}
+                                        onClick={() => {
+                                            if (agent.demoInput) {
+                                                void triggerSubmit(agent.demoInput);
+                                            }
+                                        }}
+                                        className="group relative flex flex-col text-left p-6 bg-white/60 backdrop-blur-xl border border-white/50 rounded-3xl shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-500 active:scale-[0.98] overflow-hidden min-h-[220px]"
+                                    >
+                                        <div className="absolute top-0 right-0 p-8 -mr-8 -mt-8 bg-gradient-to-br from-white/10 to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+                                        <div className="flex items-center gap-4 mb-5">
+                                            <div className={cn(
+                                                "p-3 rounded-2xl border transition-all duration-500 shrink-0",
+                                                colorMap[agent.color || 'blue']
+                                            )}>
+                                                <agent.icon className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-bold text-slate-800 text-lg truncate">{agent.label}</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Consultant Agent</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 flex-1">
+                                            <p className="text-xs text-slate-500 group-hover:text-slate-700 leading-relaxed italic border-l-2 border-slate-100 pl-3 transition-colors line-clamp-4">
+                                                "{agent.demoInput?.replace(`@${agent.id} `, '')}"
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-6 flex items-center justify-between">
+                                            <div className="flex gap-1">
+                                                {[1, 2, 3].map(i => (
+                                                    <div key={i} className="w-1 h-1 rounded-full bg-slate-200 group-hover:bg-blue-300 transition-colors" />
+                                                ))}
+                                            </div>
+                                            <div className={cn(
+                                                "flex items-center gap-2 text-xs font-black uppercase tracking-tighter opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-500",
+                                                accentMap[agent.color || 'blue']
+                                            )}>
+                                                <span>Initialize</span>
+                                                <ChevronRight className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] animate-pulse">
+                            Powered by DeepDiagram Advanced Orchestration
+                        </div>
                     </div>
                 )}
                 {messages.map((msg, idx) => {
