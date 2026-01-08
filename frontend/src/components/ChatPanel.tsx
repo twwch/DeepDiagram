@@ -418,14 +418,20 @@ export const ChatPanel = () => {
 
             if (!reader) return;
 
+            let buffer = '';
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n\n');
+                // stream: true handles multi-byte characters split across chunks
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
 
-                for (const line of lines) {
+                // The last part is either empty (if ending in \n\n) or incomplete
+                // Keep it in the buffer for the next iteration
+                buffer = parts.pop() || '';
+
+                for (const line of parts) {
                     if (!line.trim()) continue;
 
                     const eventMatch = line.match(/event: (.*)\ndata: (.*)/);
