@@ -51,8 +51,12 @@ async def create_flow(instruction: str):
     if instruction:
         prompt.append(HumanMessage(content=f"Instruction: {instruction}"))
     
-    response = await llm.ainvoke(prompt)
-    json_str = response.content
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        if chunk.content:
+            full_content += chunk.content
+    
+    json_str = full_content
     
     # Strip potential markdown boxes
     import re
@@ -99,5 +103,10 @@ async def flow_agent_node(state: AgentState):
     - BE DECISIVE. If a step looks like it needs "Manual Approval" or a "Timeout", include it in the optimized instructions.
     """)
     
-    response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response]}
+    full_response = None
+    async for chunk in llm_with_tools.astream([system_prompt] + messages):
+        if full_response is None:
+            full_response = chunk
+        else:
+            full_response += chunk
+    return {"messages": [full_response]}

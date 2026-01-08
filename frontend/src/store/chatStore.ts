@@ -90,7 +90,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return newState as any;
     }),
 
-    updateLastMessage: (content: string) => set((state) => {
+    updateLastMessage: (content: string, isStreaming = false, status: 'running' | 'done' | 'error' = 'done', sessionId?: number) => set((state) => {
+        if (sessionId && sessionId !== state.sessionId) return {};
         const allMsgs = [...state.allMessages];
         const activeId = state.activeMessageId;
         let targetIdx = -1;
@@ -98,21 +99,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (targetIdx === -1 && allMsgs.length > 0) targetIdx = allMsgs.length - 1;
 
         if (targetIdx !== -1) {
-            allMsgs[targetIdx].content = content;
-
-            // Sync to canvas if it's mindmap (other agents wait for steps/done)
             const msg = allMsgs[targetIdx];
-            const currentAgent = msg.agent || state.activeAgent;
-            const isMindmap = currentAgent === 'mindmap';
-            const isStreaming = state.isLoading;
-            const assistantMsgs = allMsgs.filter(m => m.role === 'assistant');
-            const isLatestAssistant = assistantMsgs.length > 0 && msg.id === assistantMsgs[assistantMsgs.length - 1].id;
+            msg.content = content || '';
 
-            if (isStreaming && isMindmap && isLatestAssistant && msg.id) {
-                set({ activeMessageId: msg.id });
+            // Sync to canvas state if active and should sync
+            const currentCanvasState = getCanvasState();
+            const currentAgent = msg.agent || state.activeAgent;
+            const isLatestAssistant = targetIdx === allMsgs.length - 1;
+            const isStreamingAgent = currentAgent === 'mindmap' || currentAgent === 'infographic';
+
+            const isActive = currentCanvasState.activeMessageId === null ||
+                currentCanvasState.activeMessageId === msg.id ||
+                (status === 'done' && isLatestAssistant) ||
+                (isStreaming && isStreamingAgent && isLatestAssistant);
+
+            if (isActive && (status === 'done' || (isStreaming && isStreamingAgent))) {
+                if (msg.id) set({ activeMessageId: msg.id });
                 setCanvasState({
-                    activeMessageId: msg.id,
-                    activeAgent: (currentAgent as AgentType) || state.activeAgent
+                    activeMessageId: msg.id || null,
+                    activeAgent: (currentAgent as AgentType) || state.activeAgent,
+                    renderKey: status === 'done' ? (getCanvasState().renderKey || 0) + 1 : undefined
                 });
             }
 
@@ -137,7 +143,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {};
     }),
 
-    addStepToLastMessage: (step: Step) => set((state) => {
+    replaceLastStep: (step, sessionId) => set((state) => {
+        if (sessionId && sessionId !== state.sessionId) return {};
+        const allMsgs = [...state.allMessages];
+        const activeId = state.activeMessageId;
+        let targetIdx = -1;
+        if (activeId !== null) targetIdx = allMsgs.findIndex(m => m.id === activeId);
+        if (targetIdx === -1 && allMsgs.length > 0) targetIdx = allMsgs.length - 1;
+
+        if (targetIdx !== -1) {
+            const msg = allMsgs[targetIdx];
+            if (msg.steps && msg.steps.length > 0) {
+                const steps = [...msg.steps];
+
+                // GUARD: Never replace an agent_select step with a different type
+                if (steps[steps.length - 1].type === 'agent_select' && step.type !== 'agent_select') {
+                    console.log("GUARD: Prevented replacement of agent_select step");
+                    return {};
+                }
+
+                steps[steps.length - 1] = { ...step, timestamp: Date.now() };
+                msg.steps = steps;
+
+                // Rebuild messages list for UI sync
+                const turnMap: Record<number, Message[]> = {};
+                allMsgs.forEach(m => {
+                    const turn = m.turn_index || 0;
+                    if (!turnMap[turn]) turnMap[turn] = [];
+                    turnMap[turn].push(m);
+                });
+                const sortedTurns = Object.keys(turnMap).map(Number).sort((a, b) => a - b);
+                const newMessages: Message[] = [];
+                sortedTurns.forEach(turn => {
+                    const siblings = turnMap[turn];
+                    const selectedId = state.selectedVersions[turn];
+                    const selected = siblings.find(s => s.id === selectedId) || siblings[siblings.length - 1];
+                    newMessages.push(selected);
+                });
+
+                return { allMessages: allMsgs, messages: newMessages };
+            }
+        }
+        return {};
+    }),
+
+    addStepToLastMessage: (step: Step, sessionId?: number) => set((state) => {
+        if (sessionId && sessionId !== state.sessionId) return {};
         const allMsgs = [...state.allMessages];
         const activeId = state.activeMessageId;
         let targetIdx = -1;
@@ -168,12 +219,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 newMessages.push(selected);
             });
 
+            if (sessionId && sessionId !== state.sessionId) return {};
             return { allMessages: allMsgs, messages: newMessages };
         }
         return {};
     }),
 
-    updateLastStepContent: (content, isStreaming = false, status = 'running', type, append = false) => set((state) => {
+    updateLastStepContent: (content, isStreaming = false, status = 'running', type, append = false, sessionId?: number) => set((state) => {
+        if (sessionId && sessionId !== state.sessionId) return {};
         const allMsgs = [...state.allMessages];
         const activeId = state.activeMessageId;
         let targetIdx = -1;
@@ -185,10 +238,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (msg.steps && msg.steps.length > 0) {
                 const steps = [...msg.steps];
                 const lastStep = { ...steps[steps.length - 1] };
+
+                // GUARD: Never allow updateLastStepContent to change the type of an agent_select step
+                if (type && lastStep.type === 'agent_select' && type !== 'agent_select') {
+                    console.log("GUARD: Prevented updateLastStepContent from changing agent_select type");
+                    return {};
+                }
+
                 if (append) {
-                    lastStep.content = (lastStep.content || '') + content;
+                    lastStep.content = (lastStep.content || '') + (content || '');
                 } else {
-                    lastStep.content = content;
+                    lastStep.content = content || '';
                 }
                 lastStep.isStreaming = isStreaming;
                 lastStep.status = status;
@@ -197,8 +257,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 msg.steps = steps;
 
                 // Sync to canvas if it's a tool_end OR during streaming for immediate feedback
-                // ANTI-HIJACKING: Only sync if this message IS ALREADY the active one, 
-                // or if there is no active message (auto-tracking the absolute latest).
                 const currentCanvasState = getCanvasState();
                 const currentAgent = msg.agent || state.activeAgent;
                 const isStreamingAgent = currentAgent === 'mindmap' || currentAgent === 'infographic';

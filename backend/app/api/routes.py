@@ -153,107 +153,126 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
     
     logger.info(f"🚀 Starting LLM stream with {len(full_messages)} messages, is_retry={request.is_retry}")
     
+    assistant_msg_saved = False
+    
     try:
-        # Stateless execution: No thread_id, so it runs fresh with provided history
-        async for event in graph.astream_events(inputs, version="v1"):
-            event_type = event["event"]
-            data = event["data"]
-            metadata = event.get("metadata", {})
-            node_name = metadata.get("langgraph_node", "")
-            
-            # Filter internal Router LLM stream
-            if node_name == "router":
-                # Detect Router Output to notify frontend
-                if event_type == "on_chain_end":
-                    # The router returns {"intent": "..."}
-                    output = data.get("output")
-                    if output and "intent" in output:
-                        intent = output["intent"]
-                        selected_agent = intent
-                        yield f"event: agent_selected\ndata: {json.dumps({'agent': intent})}\n\n"
+        try:
+            # Stateless execution: No thread_id, so it runs fresh with provided history
+            async for event in graph.astream_events(inputs, version="v1"):
+                event_type = event["event"]
+                data = event["data"]
+                metadata = event.get("metadata", {})
+                node_name = metadata.get("langgraph_node", "")
+                
+                # Filter internal Router LLM stream
+                if node_name == "router":
+                    # Detect Router Output to notify frontend
+                    if event_type == "on_chain_end":
+                        # The router returns {"intent": "..."}
+                        output = data.get("output")
+                        if output and "intent" in output:
+                            intent = output["intent"]
+                            selected_agent = intent
+                            yield f"event: agent_selected\ndata: {json.dumps({'agent': intent, 'session_id': session_id})}\n\n"
+                            
+                            # Also add a pseudo-step for history
+                            accumulated_steps.append({
+                                "type": "agent_select",
+                                "name": intent,
+                                "status": "done",
+                                "timestamp": int(datetime.utcnow().timestamp() * 1000)
+                            })
+                    continue # Skip all other events from "router" node
+
+                if event_type == "on_chat_model_stream":
+                    chunk = data.get("chunk")
+                    if chunk:
+                        content = chunk.content
+                        if content:
+                            is_tool_stream = node_name.endswith("_tools")
+                            if is_tool_stream:
+                                yield f"event: tool_code\ndata: {json.dumps({'content': content, 'session_id': session_id})}\n\n"
+                            else:
+                                full_response_content += content
+                                yield f"event: thought\ndata: {json.dumps({'content': content, 'session_id': session_id})}\n\n"
                         
-                        # Also add a pseudo-step for history
+                        if hasattr(chunk, 'tool_call_chunks'):
+                            for tool_chunk in chunk.tool_call_chunks or []:
+                                if tool_chunk and tool_chunk.get('args'):
+                                    args_chunk = tool_chunk['args']
+                                    yield f"event: tool_args_stream\ndata: {json.dumps({'args': args_chunk, 'session_id': session_id})}\n\n"
+
+                elif event_type == "on_tool_start":
+                    # Filter out internal LangChain/OpenAI calls that are mistakenly reported as tools in v1
+                    if event["name"] == "ChatOpenAI":
+                        continue
+                        
+                    # Add tool start step
+                    tool_input = json.dumps(data.get("input"))
+                    
+                    step = {
+                        "type": "tool_start",
+                        "name": event["name"],
+                        "content": tool_input,
+                        "status": "running",
+                        "timestamp": int(datetime.utcnow().timestamp() * 1000)
+                    }
+                    accumulated_steps.append(step)
+                    yield f"event: tool_start\ndata: {json.dumps({'tool': event['name'], 'input': data.get('input'), 'session_id': session_id})}\n\n"
+
+                elif event_type == "on_tool_end":
+                    output = data.get('output')
+                    if hasattr(output, 'content'):
+                        output = output.content
+                    elif not isinstance(output, (dict, list, str, int, float, bool, type(None))):
+                        output = str(output)
+                    
+                    # Update steps
+                    if accumulated_steps:
                         accumulated_steps.append({
-                            "type": "agent_select",
-                            "name": intent,
+                            "type": "tool_end",
+                            "name": event["name"],
+                            "content": output if isinstance(output, str) else json.dumps(output),
                             "status": "done",
                             "timestamp": int(datetime.utcnow().timestamp() * 1000)
                         })
-                continue # Skip all other events from "router" node
+                        for s in reversed(accumulated_steps):
+                            if s["type"] == "tool_start" and s["status"] == "running":
+                                s["status"] = "done"
+                                break
 
-            if event_type == "on_chat_model_stream":
-                chunk = data.get("chunk")
-                if chunk:
-                    content = chunk.content
-                    if content:
-                        is_tool_stream = node_name.endswith("_tools")
-                        if is_tool_stream:
-                            yield f"event: tool_code\ndata: {json.dumps({'content': content})}\n\n"
-                        else:
-                            full_response_content += content
-                            yield f"event: thought\ndata: {json.dumps({'content': content})}\n\n"
-                    
-                    if hasattr(chunk, 'tool_call_chunks'):
-                        for tool_chunk in chunk.tool_call_chunks or []:
-                            if tool_chunk and tool_chunk.get('args'):
-                                args_chunk = tool_chunk['args']
-                                yield f"event: tool_args_stream\ndata: {json.dumps({'args': args_chunk})}\n\n"
-
-            elif event_type == "on_tool_start":
-                # Filter out internal LangChain/OpenAI calls that are mistakenly reported as tools in v1
-                if event["name"] == "ChatOpenAI":
-                    continue
-                    
-                # Add tool start step
-                tool_input = json.dumps(data.get("input"))
-                
-                step = {
-                    "type": "tool_start",
-                    "name": event["name"],
-                    "content": tool_input,
-                    "status": "running",
-                    "timestamp": int(datetime.utcnow().timestamp() * 1000)
-                }
-                accumulated_steps.append(step)
-                yield f"event: tool_start\ndata: {json.dumps({'tool': event['name'], 'input': data.get('input')})}\n\n"
-
-            elif event_type == "on_tool_end":
-                output = data.get('output')
-                if hasattr(output, 'content'):
-                    output = output.content
-                elif not isinstance(output, (dict, list, str, int, float, bool, type(None))):
-                    output = str(output)
-                
-                # Update steps
-                if accumulated_steps:
-                    accumulated_steps.append({
-                        "type": "tool_end",
-                        "name": event["name"],  # Use actual tool name instead of generic "Result"
-                        "content": output if isinstance(output, str) else json.dumps(output),
-                        "status": "done",
-                        "timestamp": int(datetime.utcnow().timestamp() * 1000)
-                    })
-                    for s in reversed(accumulated_steps):
-                        if s["type"] == "tool_start" and s["status"] == "running":
-                            s["status"] = "done"
-                            break
-
-
-                yield f"event: tool_end\ndata: {json.dumps({'output': output})}\n\n"
-        
-        # 4. Save Assistant Message
-        if full_response_content or accumulated_steps:
-            assistant_msg = await chat_service.add_message(
-                session_id, "assistant", 
-                full_response_content, 
-                steps=accumulated_steps,
-                agent=selected_agent,
-                parent_id=last_user_msg_id
-            )
-            yield f"event: message_created\ndata: {json.dumps({'id': assistant_msg.id, 'role': 'assistant', 'turn_index': assistant_msg.turn_index})}\n\n"
+                    yield f"event: tool_end\ndata: {json.dumps({'output': output, 'session_id': session_id})}\n\n"
             
-            # 5. Persist Current Code to Session
-            
+            # 4. Save Assistant Message (Normal completion)
+            if full_response_content or accumulated_steps:
+                assistant_msg = await chat_service.add_message(
+                    session_id, "assistant", 
+                    full_response_content, 
+                    steps=accumulated_steps,
+                    agent=selected_agent,
+                    parent_id=last_user_msg_id
+                )
+                assistant_msg_saved = True
+                yield f"event: message_created\ndata: {json.dumps({'id': assistant_msg.id, 'role': 'assistant', 'turn_index': assistant_msg.turn_index, 'session_id': session_id})}\n\n"
+                
+        finally:
+            import asyncio
+            # Robust Persistence: Ensure partial data is saved if connection was aborted
+            if not assistant_msg_saved and (full_response_content or accumulated_steps):
+                error_marker = "\n\n[Generation stopped by user/connection lost]"
+                try:
+                    # Use asyncio.shield to prevent the save operation from being cancelled
+                    await asyncio.shield(chat_service.add_message(
+                        session_id, "assistant", 
+                        full_response_content + error_marker, 
+                        steps=accumulated_steps,
+                        agent=selected_agent,
+                        parent_id=last_user_msg_id
+                    ))
+                    logger.info(f"💾 Robust Persistence: Saved partial assistant message for session {session_id}")
+                except Exception as save_err:
+                    logger.error(f"Failed to save partial message: {save_err}")
+                
     except Exception as e:
         import traceback
         error_msg = str(e)

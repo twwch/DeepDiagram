@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { cn } from '../lib/utils';
+import { cn, copyToClipboard } from '../lib/utils';
 import { BrainCircuit, Terminal, CheckCircle, ChevronDown, ChevronRight, Activity, Copy, Play, Check, RotateCcw } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 import type { Step } from '../types';
@@ -22,7 +22,7 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
     const [isExpanded, setIsExpanded] = useState(false);
     const [copied, setCopied] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const { setAgent, isLoading } = useChatStore();
+    const { setAgent } = useChatStore();
 
     // Auto-expand when streaming starts, auto-collapse when finished if it's a tool_end/Result
     useEffect(() => {
@@ -63,8 +63,10 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
         <div className={cn(
             "flex flex-col text-xs rounded-lg font-mono border transition-all",
             step.type === 'agent_select'
-                ? "bg-purple-50 border-purple-100 text-purple-900"
-                : "bg-slate-50 border-slate-100 text-slate-700 ml-4 border-l-2 border-l-slate-300"
+                ? "bg-purple-50 border-purple-100 text-purple-900 shadow-sm"
+                : (step.type === 'tool_end'
+                    ? "bg-green-50 border-green-100 text-green-900 ml-4 border-l-2 border-l-green-300 shadow-sm"
+                    : "bg-slate-50 border-slate-100 text-slate-700 ml-4 border-l-2 border-l-slate-300")
         )}>
             <div
                 className={cn("flex items-center gap-2 p-2", hasContent && "cursor-pointer hover:bg-black/5")}
@@ -93,7 +95,23 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
                             })()}
                         </>
                     )}
-                    {step.type === 'tool_start' && `Calling: ${step.name}`}
+                    {step.type === 'tool_start' && `Calling: ${(() => {
+                        const toolNames: Record<string, string> = {
+                            'charts': 'Charts',
+                            'create_chart': 'Charts',
+                            'infographic': 'Infographic',
+                            'generate_infographic': 'Infographic',
+                            'mindmap': 'Mindmap',
+                            'mindmap_agent': 'Mindmap',
+                            'mermaid': 'Mermaid',
+                            'mermaids_agent': 'Mermaid',
+                            'drawio': 'Draw.io',
+                            'drawIO_agent': 'Draw.io',
+                            'flowchart': 'Flowchart',
+                            'flowchart_agent': 'Flowchart'
+                        };
+                        return toolNames[step.name || ''] || step.name;
+                    })()}`}
                     {step.type === 'tool_end' && `Result`}
                     {step.isError && (
                         <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded border border-red-200">
@@ -114,51 +132,46 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
                     </div>
                 )}
 
-                {step.type === 'agent_select' && associatedResult && (
-                    <div className="flex items-center gap-1.5 ml-2">
+                <div className="flex items-center gap-1.5 ml-2">
+                    {step.type === 'agent_select' && associatedResult && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (activeAgent) {
-                                    setAgent(activeAgent as any);
-                                }
+                                if (activeAgent) setAgent(activeAgent as any);
                                 if (onSync) onSync();
-                                // Result will be extracted from message history
                             }}
-                            disabled={isLoading}
-                            className="p-1 px-2 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Render Result"
+                            className="p-1 px-2 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all shadow-sm cursor-pointer"
                         >
                             <Play className="w-3 h-3 fill-current" />
                             <span className="text-[10px] font-bold">Render</span>
                         </button>
-                        {onRetry && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRetry(messageIndex);
-                                }}
-                                disabled={isLoading}
-                                className="p-1 px-1.5 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white rounded-md transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                                title="Retry Generation"
-                            >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                        )}
-                    </div>
-                )}
+                    )}
+
+                    {step.type === 'agent_select' && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onRetry) onRetry(messageIndex);
+                            }}
+                            className="p-1 text-purple-400 hover:text-purple-600 hover:bg-purple-100 rounded transition-colors"
+                            title="Retry this turn"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {hasContent && isExpanded && (
                 <div className="px-2 pb-2 overflow-hidden animate-in slide-in-from-top-1 duration-200">
                     <div className="bg-white/50 rounded border border-slate-200 overflow-hidden">
-                        {/* Toolbar for tool_end */}
+                        {/* Toolbar for tool_end (Result cards) */}
                         {step.type === 'tool_end' && (
                             <div className="flex items-center justify-end gap-1 p-1 bg-slate-100 border-b border-slate-200">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        navigator.clipboard.writeText(step.content || '');
+                                        void copyToClipboard(step.content || '');
                                         setCopied(true);
                                         setTimeout(() => setCopied(false), 2000);
                                     }}
@@ -169,16 +182,15 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
                                 </button>
                             </div>
                         )}
-                        <div ref={scrollRef} className="p-2 overflow-y-auto max-h-40 custom-scrollbar">
-                            <pre className="text-[10px] leading-tight text-slate-600 whitespace-pre break-words">
+                        <div ref={scrollRef} className="p-2 overflow-y-auto max-h-60 custom-scrollbar">
+                            <pre className="text-[10px] leading-tight text-slate-700 whitespace-pre break-words font-medium">
                                 {formatContent(step.content)}
                             </pre>
                         </div>
                     </div>
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 };
 

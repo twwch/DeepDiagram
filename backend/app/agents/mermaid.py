@@ -45,8 +45,12 @@ async def create_mermaid(instruction: str):
     if instruction:
         prompt.append(HumanMessage(content=f"Instruction: {instruction}"))
     
-    response = await llm.ainvoke(prompt)
-    code = response.content
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        if chunk.content:
+            full_content += chunk.content
+    
+    code = full_content
     
     # Robustly strip markdown code blocks
     import re
@@ -92,5 +96,10 @@ async def mermaid_agent_node(state: AgentState):
     - BE DECISIVE. If you see an opportunity to add a "Fallback State" or a "User Feedback Loop", include it in the architect's instructions.
     """)
     
-    response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response]}
+    full_response = None
+    async for chunk in llm_with_tools.astream([system_prompt] + messages):
+        if full_response is None:
+            full_response = chunk
+        else:
+            full_response += chunk
+    return {"messages": [full_response]}

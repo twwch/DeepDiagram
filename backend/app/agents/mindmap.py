@@ -47,11 +47,13 @@ async def create_mindmap(instruction: str):
     if instruction:
         prompt.append(HumanMessage(content=f"Instruction: {instruction}"))
     
-    response = await llm.ainvoke(prompt)
-    markdown = response.content
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        if chunk.content:
+            full_content += chunk.content
     
     # Simply return the markdown so the frontend can render it.
-    return markdown
+    return full_content
 
 tools = [create_mindmap]
 llm_with_tools = llm.bind_tools(tools)
@@ -93,8 +95,13 @@ async def mindmap_agent_node(state: AgentState):
     - BE DECISIVE. If a topic has obvious "Pros/Cons" or "Future Risks", include them in the brainstormed instructions.
     """)
     
-    response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response]}
+    full_response = None
+    async for chunk in llm_with_tools.astream([system_prompt] + messages):
+        if full_response is None:
+            full_response = chunk
+        else:
+            full_response += chunk
+    return {"messages": [full_response]}
 
 # Simple ReAct loop for the agent could be implemented here or managed by the top-level graph.
 # For simplicity, we'll define the node here and likely bind it in the main graph.

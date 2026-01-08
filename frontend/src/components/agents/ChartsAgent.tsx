@@ -33,29 +33,18 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
     }));
 
     useEffect(() => {
-        if (!currentCode || !chartRef.current) {
-            if (chartInstanceRef.current) {
-                chartInstanceRef.current.dispose();
-                chartInstanceRef.current = null;
-            }
-            return;
-        }
-        if (isStreamingCode) return;  // 流式期间不渲染
+        if (!currentCode || !chartRef.current) return;
+        if (isStreamingCode) return;
 
-        // 销毁已存在的实例
-        if (chartRef.current) {
-            const existingInstance = echarts.getInstanceByDom(chartRef.current);
-            if (existingInstance) {
-                existingInstance.dispose();
-            }
+        // Initialize or get existing instance
+        let chart = chartInstanceRef.current;
+        if (!chart) {
+            chart = echarts.init(chartRef.current);
+            chartInstanceRef.current = chart;
         }
-
-        const chart = echarts.init(chartRef.current);
-        chartInstanceRef.current = chart;
 
         try {
             setError(null);
-
             let options: any;
 
             // Helper to try parsing JSON-like string
@@ -64,7 +53,6 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
                     return JSON.parse(str);
                 } catch {
                     try {
-                        // Fallback to Function constructor
                         return new Function(`return (${str})`)();
                     } catch {
                         return null;
@@ -72,11 +60,9 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
                 }
             };
 
-            // Strategy 1: clean code direct parse
             let cleanCode = currentCode.trim();
             options = tryParse(cleanCode);
 
-            // Strategy 2: Strip markdown code blocks
             if (!options) {
                 const match = cleanCode.match(/```(?:json|chart)?\s*([\s\S]*?)\s*```/i);
                 if (match) {
@@ -84,21 +70,21 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
                 }
             }
 
-            // Strategy 3: Brute force find first { and last }
             if (!options) {
                 const start = cleanCode.indexOf('{');
                 const end = cleanCode.lastIndexOf('}');
                 if (start !== -1 && end !== -1 && end > start) {
-                    const candidate = cleanCode.substring(start, end + 1);
-                    options = tryParse(candidate);
+                    options = tryParse(cleanCode.substring(start, end + 1));
                 }
             }
 
             if (!options) throw new Error("Could not parse chart configuration");
 
-            const hasAxis = options.xAxis || options.yAxis || (options.grid && !options.series?.some((s: any) => s.type === 'pie'));
+            // Auto-enrichment for consistency
+            const hasXAxis = Array.isArray(options.xAxis) ? options.xAxis.length > 0 : !!options.xAxis;
+            const hasYAxis = Array.isArray(options.yAxis) ? options.yAxis.length > 0 : !!options.yAxis;
 
-            if (hasAxis) {
+            if (hasXAxis && hasYAxis) {
                 if (!options.dataZoom) {
                     options.dataZoom = [
                         { type: 'inside', xAxisIndex: [0], filterMode: 'filter' },
@@ -110,24 +96,24 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
 
             if (options.series) {
                 options.series = options.series.map((s: any) => {
-                    if (['graph', 'tree', 'map', 'sankey'].includes(s.type)) {
-                        return { ...s, roam: true };
+                    const type = s.type;
+                    if (['graph', 'tree', 'map', 'sankey'].includes(type)) {
+                        return { roam: true, ...s };
                     }
                     return s;
                 });
             }
 
-            chart.setOption(options);
+            // use notMerge: true to prevent leakage of old axis/grid state
+            chart.setOption(options, { notMerge: true });
 
-            // Report success to clear any potential previous error
             useChatStore.getState().reportSuccess();
 
-            const resizeObserver = new ResizeObserver(() => chart.resize());
+            const resizeObserver = new ResizeObserver(() => chart?.resize());
             resizeObserver.observe(chartRef.current);
 
             return () => {
                 resizeObserver.disconnect();
-                chart.dispose();
             };
         } catch (e) {
             console.error("ECharts error", e);
@@ -136,6 +122,16 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
             useChatStore.getState().reportError(msg);
         }
     }, [currentCode, isStreamingCode]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (chartInstanceRef.current) {
+                chartInstanceRef.current.dispose();
+                chartInstanceRef.current = null;
+            }
+        };
+    }, []);
 
     return (
         <div className="w-full h-full relative bg-white flex items-center justify-center">

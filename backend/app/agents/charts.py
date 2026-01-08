@@ -58,8 +58,12 @@ async def create_chart(instruction: str):
     if instruction:
         prompt.append(HumanMessage(content=f"Instruction: {instruction}"))
     
-    response = await llm.ainvoke(prompt)
-    option_str = response.content
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        if chunk.content:
+            full_content += chunk.content
+    
+    option_str = full_content
     
     # Strip potential markdown boxes
     import re
@@ -108,5 +112,10 @@ async def charts_agent_node(state: AgentState):
     - BE DECISIVE. If you see an opportunity to add a "Goal Target" line or "YoY Growth" metrics, include it in the tool instruction.
     """)
     
-    response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response]}
+    full_response = None
+    async for chunk in llm_with_tools.astream([system_prompt] + messages):
+        if full_response is None:
+            full_response = chunk
+        else:
+            full_response += chunk
+    return {"messages": [full_response]}

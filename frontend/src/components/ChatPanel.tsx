@@ -24,7 +24,7 @@ import {
     X
 } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
-import { cn } from '../lib/utils';
+import { cn, copyToClipboard } from '../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { ExecutionTrace } from './ExecutionTrace';
 import type { Message, Step } from '../types';
@@ -152,7 +152,7 @@ export const ChatPanel = () => {
                 .join('\n\n');
         }
         if (textToCopy) {
-            navigator.clipboard.writeText(textToCopy);
+            void copyToClipboard(textToCopy);
             setCopiedIndex(index);
             setTimeout(() => setCopiedIndex(null), 2000);
         }
@@ -335,14 +335,7 @@ export const ChatPanel = () => {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
             setLoading(false);
-            setStreamingCode(false); // Ensure flags are reset
-            addStepToLastMessage({
-                type: 'agent_select',
-                name: 'System',
-                content: 'Generation stopped by user.',
-                status: 'done',
-                timestamp: Date.now()
-            });
+            setStreamingCode(false);
         }
     };
 
@@ -380,12 +373,13 @@ export const ChatPanel = () => {
             const assistantTurn = userTurn + 1;
             addMessage({ role: 'user', content: promptToUse, images: imagesToUse, parent_id: effectiveParentId ?? null, turn_index: userTurn });
             setLoading(true);
-            addMessage({ role: 'assistant', content: '', parent_id: undefined, turn_index: assistantTurn });
+            // Link to parent locally if possible, or leave as null for backend to link
+            addMessage({ role: 'assistant', content: '', parent_id: effectiveParentId ?? null, turn_index: assistantTurn, steps: [] });
             setActiveMessageId(null); // Will fallback to last message in allMessages until ID is confirmed
         } else {
             const assistantTurn = parentTurn + 1;
             setLoading(true);
-            addMessage({ role: 'assistant', content: '', parent_id: parentId ?? null, turn_index: assistantTurn });
+            addMessage({ role: 'assistant', content: '', parent_id: parentId ?? null, turn_index: assistantTurn, steps: [] });
             setActiveMessageId(null);
         }
 
@@ -425,136 +419,231 @@ export const ChatPanel = () => {
                 const lines = chunk.split('\n\n');
 
                 for (const line of lines) {
-                    if (line.startsWith('event: ')) {
-                        const eventName = line.split('\n')[0].replace('event: ', '');
-                        const dataStr = line.split('\n')[1]?.replace('data: ', '');
+                    if (!line.trim()) continue;
 
-                        if (!dataStr) continue;
+                    const eventMatch = line.match(/event: (.*)\ndata: (.*)/);
+                    if (eventMatch) {
+                        const eventName = eventMatch[1].trim();
+                        const dataStr = eventMatch[2].trim();
 
                         try {
                             const data = JSON.parse(dataStr);
+                            const eventSessionId = data.session_id;
 
+                            // 1. Session created is special - it sets the current session
                             if (eventName === 'session_created') {
                                 setSessionId(data.session_id);
-                                void loadSessions(); // Refresh list when new session is created
-                            } else if (eventName === 'message_created') {
-                                // Update the ID and Turn Index of the unconfirmed message
-                                useChatStore.setState((state) => {
-                                    const allMsgs = [...state.allMessages];
+                                void loadSessions();
+                                continue;
+                            }
 
-                                    // Find the first message of this role that doesn't have an ID yet
-                                    const targetIdx = allMsgs.findIndex(m => m.role === data.role && !m.id);
-                                    if (targetIdx !== -1) {
-                                        const oldId = allMsgs[targetIdx].id;
-                                        allMsgs[targetIdx].id = data.id;
-                                        if (data.turn_index !== undefined) {
-                                            allMsgs[targetIdx].turn_index = data.turn_index;
-                                        }
+                            // 2. Filter other events by session ID if present
+                            if (eventSessionId && eventSessionId !== useChatStore.getState().sessionId) {
+                                console.warn(`Ignoring event for session ${eventSessionId} (current: ${useChatStore.getState().sessionId})`);
+                                continue;
+                            }
 
-                                        // Propagate ID to any children (though with linear turns this is less critical)
-                                        allMsgs.forEach(m => {
-                                            if (m.parent_id === oldId && oldId !== undefined) {
-                                                m.parent_id = data.id;
+                            // 3. Dispatch events
+                            switch (eventName) {
+                                case 'message_created':
+                                    useChatStore.setState((state) => {
+                                        const allMsgs = [...state.allMessages];
+                                        const targetIdx = allMsgs.findIndex(m => m.role === data.role && !m.id);
+                                        if (targetIdx !== -1) {
+                                            const oldId = allMsgs[targetIdx].id;
+                                            allMsgs[targetIdx].id = data.id;
+                                            if (data.turn_index !== undefined) {
+                                                allMsgs[targetIdx].turn_index = data.turn_index;
                                             }
-                                        });
+                                            allMsgs.forEach(m => {
+                                                if (m.parent_id === oldId && oldId !== undefined) {
+                                                    m.parent_id = data.id;
+                                                }
+                                            });
 
-                                        // Update activeMessageId if it's the assistant
-                                        let activeId = state.activeMessageId;
-                                        // 所有 assistant 消息都即时激活
-                                        if (data.role === 'assistant') {
-                                            activeId = data.id;
+                                            let activeId = state.activeMessageId;
+                                            if (data.role === 'assistant') {
+                                                activeId = data.id;
+                                            }
+
+                                            const turn = allMsgs[targetIdx].turn_index ?? 0;
+                                            const newSelectedVersions = { ...state.selectedVersions, [turn]: data.id };
+
+                                            // Rebuild messages list
+                                            const turnMap: Record<number, Message[]> = {};
+                                            allMsgs.forEach(m => {
+                                                const t = m.turn_index || 0;
+                                                if (!turnMap[t]) turnMap[t] = [];
+                                                turnMap[t].push(m);
+                                            });
+
+                                            const sortedTurns = Object.keys(turnMap).map(Number).sort((a, b) => a - b);
+                                            const newMessages: Message[] = [];
+                                            sortedTurns.forEach(t => {
+                                                const siblings = turnMap[t];
+                                                const selectedId = newSelectedVersions[t];
+                                                const selected = siblings.find(s => s.id === selectedId) || siblings[siblings.length - 1];
+                                                newMessages.push(selected);
+                                            });
+
+                                            return {
+                                                allMessages: allMsgs,
+                                                messages: newMessages,
+                                                selectedVersions: newSelectedVersions,
+                                                activeMessageId: activeId
+                                            };
                                         }
+                                        return {};
+                                    });
+                                    break;
 
-                                        // Update selected version for this turn
-                                        const turn = allMsgs[targetIdx].turn_index ?? 0;
-                                        const newSelectedVersions = { ...state.selectedVersions, [turn]: data.id };
+                                case 'agent_selected':
+                                    setAgent(data.agent);
+                                    // Always add the agent selection step to ensure visibility
 
-                                        // Rebuild messages list
-                                        const turnMap: Record<number, Message[]> = {};
-                                        allMsgs.forEach(m => {
-                                            const t = m.turn_index || 0;
-                                            if (!turnMap[t]) turnMap[t] = [];
-                                            turnMap[t].push(m);
-                                        });
+                                    addStepToLastMessage({
+                                        type: 'agent_select',
+                                        name: data.agent,
+                                        status: 'done',
+                                        timestamp: Date.now()
+                                    }, eventSessionId);
+                                    break;
 
-                                        const sortedTurns = Object.keys(turnMap).map(Number).sort((a, b) => a - b);
-                                        const newMessages: Message[] = [];
-                                        sortedTurns.forEach(t => {
-                                            const siblings = turnMap[t];
-                                            const selectedId = newSelectedVersions[t];
-                                            const selected = siblings.find(s => s.id === selectedId) || siblings[siblings.length - 1];
-                                            newMessages.push(selected);
-                                        });
+                                case 'tool_start':
+                                    const stateTool = useChatStore.getState();
+                                    const lastMsgTool = stateTool.allMessages[stateTool.allMessages.length - 1];
+                                    const lastStepTool = lastMsgTool?.steps?.[lastMsgTool.steps.length - 1];
+                                    const toolInput = JSON.stringify(data.input) || '';
 
-                                        return {
-                                            allMessages: allMsgs,
-                                            messages: newMessages,
-                                            selectedVersions: newSelectedVersions,
-                                            activeMessageId: activeId
-                                        };
-                                    }
-                                    return {};
-                                });
-                            } else if (eventName === 'agent_selected') {
-                                setAgent(data.agent);
-                                addStepToLastMessage({
-                                    type: 'agent_select',
-                                    name: data.agent,
-                                    status: 'done',
-                                    timestamp: Date.now()
-                                });
-                            } else if (eventName === 'tool_start') {
-                                // Add tool start step
-                                addStepToLastMessage({
-                                    type: 'tool_start',
-                                    name: data.tool,
-                                    content: JSON.stringify(data.input),
-                                    status: 'running',
-                                    timestamp: Date.now()
-                                });
-                                // Add a "Result" step that will hold the streaming content and auto-expand
-                                addStepToLastMessage({
-                                    type: 'tool_end',
-                                    name: 'Result',
-                                    content: '',
-                                    status: 'running',
-                                    timestamp: Date.now(),
-                                    isStreaming: true
-                                });
-                            } else if (eventName === 'thought') {
-                                thoughtBuffer += data.content;
-                                updateLastMessage(thoughtBuffer);
-                            } else if (eventName === 'tool_code') {
-                                // Direct code stream from a tool
-                                setStreamingCode(true);
-                                // Also update the "Result" step in the trace
-                                updateLastStepContent(data.content, true, 'running', undefined, true);
-                            } else if (eventName === 'tool_args_stream') {
-                                const argsDelta = data.args;
-                                if (argsDelta) {
-                                    toolArgsBuffer += argsDelta;
-                                    // Extract content from tool arguments for agents that support streaming
-                                    // NOTE: Mindmap uses 'instruction' which is the user request, NOT the actual markdown.
-                                    // Mindmap content comes from tool_end only. Do NOT extract from tool_args_stream for mindmap.
-                                    const contentMatch = toolArgsBuffer.match(/"(content|description|data|markdown|code|xml_content|option_str)"\s*:\s*"/);
-                                    if (contentMatch) {
-                                        const startIdx = contentMatch.index! + contentMatch[0].length;
-                                        let endIdx = toolArgsBuffer.indexOf('"', startIdx);
-                                        while (endIdx !== -1 && toolArgsBuffer[endIdx - 1] === '\\') {
-                                            endIdx = toolArgsBuffer.indexOf('"', endIdx + 1);
+                                    // Helper for robust JSON comparison
+                                    const isEqualJson = (a?: string, b?: string) => {
+                                        if (a === b) return true;
+                                        if (!a || !b) return false;
+                                        try {
+                                            const pa = JSON.parse(a);
+                                            const pb = JSON.parse(b);
+                                            return JSON.stringify(pa) === JSON.stringify(pb);
+                                        } catch {
+                                            return a.trim() === b.trim();
                                         }
-                                        // Don't stream tool_args for mindmap - it only contains instruction, not markdown
-                                        // Other agents can use this if they have actual code in their args
+                                    };
+
+                                    // 1. Aggressive Dedup & Merging:
+                                    // If last step was an agent selection OR an identical tool call OR a generic precursor tool
+                                    if (lastStepTool) {
+                                        const isIdentical = isEqualJson(lastStepTool.content, toolInput);
+                                        const isGenericPrecursor = lastStepTool.type === 'tool_start' &&
+                                            (lastStepTool.name === 'charts' || lastStepTool.name === 'infographic' ||
+                                                lastStepTool.content === '{}' || !lastStepTool.content);
+
+                                        const isReplaceable = lastStepTool.type === 'tool_start';
+
+                                        if (isReplaceable && (isIdentical || isGenericPrecursor)) {
+                                            console.log(`Aggressively replacing previous step with: ${data.tool}`);
+                                            toolArgsBuffer = ""; // Reset buffer
+                                            const replaceLastStep = useChatStore.getState().replaceLastStep;
+                                            replaceLastStep({
+                                                type: 'tool_start',
+                                                name: data.tool,
+                                                content: toolInput,
+                                                status: 'running',
+                                                isStreaming: true,
+                                                timestamp: Date.now()
+                                            }, eventSessionId);
+                                            break;
+                                        }
                                     }
-                                }
-                            } else if (eventName === 'tool_end') {
-                                setStreamingCode(false);
-                                updateLastStepContent(data.output, false, 'done');
-                            } else if (eventName === 'code_update') {
-                                // Handled by dynamic derivation from history
+
+                                    // 2. Mark previous step as finished if it was streaming
+                                    if (lastStepTool?.isStreaming) {
+                                        updateLastStepContent(lastStepTool.content || '', false, 'done', lastStepTool.type, false, eventSessionId);
+                                    }
+
+                                    // 3. Add tool start step
+                                    toolArgsBuffer = ""; // Reset buffer for the new tool call
+                                    addStepToLastMessage({
+                                        type: 'tool_start',
+                                        name: data.tool,
+                                        content: toolInput,
+                                        status: 'running',
+                                        timestamp: Date.now(),
+                                        isStreaming: true
+                                    }, eventSessionId);
+                                    break;
+
+                                case 'thought':
+                                    if (data.content) {
+                                        thoughtBuffer += data.content;
+                                        updateLastMessage(thoughtBuffer, true, 'running', eventSessionId);
+                                    }
+                                    break;
+
+                                case 'tool_code':
+                                    if (data.content) {
+                                        setStreamingCode(true);
+                                        const stateCode = useChatStore.getState();
+                                        const lastMsgCode = stateCode.allMessages[stateCode.allMessages.length - 1];
+                                        const lastStepCode = lastMsgCode?.steps?.[lastMsgCode.steps.length - 1];
+
+                                        // Ensure "Result" step exists before updating it
+                                        const isLastStepResult = lastStepCode?.type === 'tool_end' && lastStepCode.name === 'Result';
+
+                                        if (!isLastStepResult) {
+                                            // Close tool_start's generating state
+                                            if (lastStepCode?.isStreaming) {
+                                                updateLastStepContent(lastStepCode.content || '', false, 'done', lastStepCode.type, false, eventSessionId);
+                                            }
+
+                                            addStepToLastMessage({
+                                                type: 'tool_end',
+                                                name: 'Result',
+                                                content: '',
+                                                status: 'running',
+                                                timestamp: Date.now(),
+                                                isStreaming: true
+                                            }, eventSessionId);
+                                        }
+                                        updateLastStepContent(data.content, true, 'running', 'tool_end', true, eventSessionId);
+                                    }
+                                    break;
+
+                                case 'tool_args_stream':
+                                    if (data.args) {
+                                        toolArgsBuffer += data.args;
+                                        updateLastStepContent(toolArgsBuffer, true, 'running', 'tool_start', false, eventSessionId);
+                                    }
+                                    break;
+
+                                case 'tool_end':
+                                    setStreamingCode(false);
+                                    const stateEnd = useChatStore.getState();
+                                    const lastMsgEnd = stateEnd.allMessages[stateEnd.allMessages.length - 1];
+                                    const lastStepEnd = lastMsgEnd?.steps?.[lastMsgEnd.steps.length - 1];
+
+                                    // Mark whatever was last (Tool or result) as done
+                                    if (lastStepEnd?.isStreaming) {
+                                        updateLastStepContent(data.output || lastStepEnd.content || '', false, 'done', lastStepEnd.type, false, eventSessionId);
+                                    }
+
+                                    // Ensure a Result step exists if output came but no Result step was active
+                                    if (lastStepEnd?.type !== 'tool_end' && data.output) {
+                                        addStepToLastMessage({
+                                            type: 'tool_end',
+                                            name: 'Result',
+                                            content: data.output,
+                                            status: 'done',
+                                            timestamp: Date.now(),
+                                            isStreaming: false
+                                        }, eventSessionId);
+                                    }
+                                    break;
+
+                                case 'error':
+                                    updateLastMessage(thoughtBuffer + `\n\n[Error: ${data.message}]`, false, 'error', eventSessionId);
+                                    break;
                             }
                         } catch (jsonErr) {
-                            console.error("JSON Parse error", jsonErr);
+                            console.error("JSON Parse error", jsonErr, dataStr);
                         }
                     }
                 }
@@ -637,6 +726,7 @@ export const ChatPanel = () => {
                                                     sessionId === session.id ? "bg-blue-50/80 border-blue-100" : "transparent"
                                                 )}
                                                 onClick={() => {
+                                                    stopGeneration();
                                                     void selectSession(session.id);
                                                     setShowHistory(false);
                                                 }}
@@ -819,10 +909,10 @@ export const ChatPanel = () => {
                     const versionInfo = msg.role === 'assistant' ? getVersionInfo(msg) : null;
                     const isGenerating = msg.role === 'assistant' && isLoading && (
                         (activeMessageId !== null && msg.id === activeMessageId) ||
-                        (activeMessageId === null && !msg.id && idx === messages.findIndex(m => !m.id))
+                        (activeMessageId === null && !msg.id && idx === messages.map(m => m.id === undefined && m.role === 'assistant').lastIndexOf(true))
                     );
                     const hasVisibleSteps = msg.steps && msg.steps.some(s => !(s.type === 'agent_select' && (s.name === 'general' || s.name === 'general_agent')));
-                    const hasContent = msg.content.trim() || hasVisibleSteps || (msg.images && msg.images.length > 0);
+                    const hasContent = (msg.content || '').trim() || hasVisibleSteps || (msg.images && msg.images.length > 0);
 
                     if (msg.role === 'assistant' && !hasContent && !isGenerating && !versionInfo) {
                         return null;

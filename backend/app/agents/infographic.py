@@ -147,5 +147,10 @@ async def infographic_agent_node(state: AgentState):
     - BE DECISIVE. If you see an opportunity to add a "Did you know?" section or a "Key Metric", include it in the tool instruction.
     """)
     
-    response = await llm_with_tools.ainvoke([system_prompt] + messages)
-    return {"messages": [response]}
+    full_response = None
+    async for chunk in llm_with_tools.astream([system_prompt] + messages):
+        if full_response is None:
+            full_response = chunk
+        else:
+            full_response += chunk
+    return {"messages": [full_response]}

@@ -4,11 +4,10 @@ export interface Step {
     type: 'agent_select' | 'tool_start' | 'tool_end';
     name?: string; // e.g. "mindmap_agent", "create_chart"
     content?: string; // Input or Output
-    status?: 'running' | 'done' | 'error';
-    timestamp?: number;
-    error?: string;
-    isError?: boolean;
+    status: 'running' | 'done' | 'error';
+    timestamp: number;
     isStreaming?: boolean;
+    isError?: boolean;
 }
 
 export interface Message {
@@ -55,10 +54,11 @@ export interface ChatState {
     setStreamingCode: (streaming: boolean) => void;
     setSessionId: (id: number | null) => void;
     setMessages: (messages: Message[]) => void;
-    updateLastMessage: (content: string) => void;
+    updateLastMessage: (content: string, isStreaming?: boolean, status?: 'running' | 'done' | 'error', sessionId?: number) => void;
     setActiveMessageId: (id: number | null) => void;
-    addStepToLastMessage: (step: Step) => void;
-    updateLastStepContent: (content: string, isStreaming?: boolean, status?: 'running' | 'done', type?: Step['type'], append?: boolean) => void;
+    addStepToLastMessage: (step: Step, sessionId?: number) => void;
+    updateLastStepContent: (content: string, isStreaming?: boolean, status?: 'running' | 'done', type?: Step['type'], append?: boolean, sessionId?: number) => void;
+    replaceLastStep: (step: Step, sessionId?: number) => void;
     activeStepRef: { messageIndex: number, stepIndex: number } | null;
     setActiveStepRef: (ref: { messageIndex: number, stepIndex: number } | null) => void;
 
