@@ -1,7 +1,7 @@
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_llm, get_thinking_instructions
 from app.state.state import AgentState
 from app.core.context import get_messages
 
@@ -44,7 +44,7 @@ async def render_drawio_xml(instruction: str):
     messages = get_messages()
     
     # Call LLM to generate the Draw.io XML
-    system_msg = DRAWIO_SYSTEM_PROMPT
+    system_msg = DRAWIO_SYSTEM_PROMPT + get_thinking_instructions()
 
     prompt = [SystemMessage(content=system_msg)] + messages
     if instruction:
@@ -60,8 +60,11 @@ async def render_drawio_xml(instruction: str):
     if not xml_content:
         return "Error: No XML content generated."
     
-    # Strip potential markdown boxes if the LLM ignored the instruction
+    # Robustly strip markdown code blocks
     import re
+    # Remove any thinking tags first
+    xml_content = re.sub(r'<think>[\s\S]*?</think>', '', xml_content, flags=re.DOTALL)
+
     xml_content = re.sub(r'^```[a-zA-Z]*\n', '', xml_content)
     xml_content = re.sub(r'\n```$', '', xml_content)
     
@@ -93,7 +96,7 @@ async def drawio_agent_node(state: AgentState):
     
     ### PROACTIVENESS:
     - BE DECISIVE. If you see an opportunity to add a "CDN" or "Security Layer", include it in the architect's instructions.
-    """)
+    """ + get_thinking_instructions())
     
     full_response = None
     async for chunk in llm_with_tools.astream([system_prompt] + messages):

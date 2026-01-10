@@ -66,4 +66,5 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          generate_release_notes: true
+          body: ${{ github.event.head_commit.message }}
+          generate_release_notes: false

@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from app.state.state import AgentState
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_llm, get_thinking_instructions
 from app.core.context import set_context, get_messages, get_context
 
 llm = get_llm()
@@ -22,7 +22,7 @@ MERMAID_SYSTEM_PROMPT = """You are a World-Class Technical Documentation Special
 - **TECHNICAL DEPTH**: Use type annotations in class diagrams. Use dates and percentages in Gantt charts.
 - **LANGUAGE**: Match user's input language.
 
-Return ONLY the raw Mermaid syntax string. No markdown fences.
+Return ONLY the raw Mermaid syntax string. No markdown fences. NO COMMENTS (like %% ...).
 """
 
 @tool
@@ -37,7 +37,7 @@ async def create_mermaid(instruction: str):
     current_code = context.get("current_code", "")
     
     # Call LLM to generate the Mermaid code
-    system_msg = MERMAID_SYSTEM_PROMPT
+    system_msg = MERMAID_SYSTEM_PROMPT + get_thinking_instructions()
     if current_code:
         system_msg += f"\n\n### CURRENT DIAGRAM CODE\n```mermaid\n{current_code}\n```\nApply changes to this code."
 
@@ -54,6 +54,9 @@ async def create_mermaid(instruction: str):
     
     # Robustly strip markdown code blocks
     import re
+    # Remove any thinking tags first
+    code = re.sub(r'<think>[\s\S]*?</think>', '', code, flags=re.DOTALL)
+
     cleaned_code = re.sub(r'^```[a-zA-Z]*\n', '', code)
     cleaned_code = re.sub(r'\n```$', '', cleaned_code)
     return cleaned_code.strip()
@@ -94,7 +97,7 @@ async def mermaid_agent_node(state: AgentState):
     
     ### PROACTIVENESS:
     - BE DECISIVE. If you see an opportunity to add a "Fallback State" or a "User Feedback Loop", include it in the architect's instructions.
-    """)
+    """ + get_thinking_instructions())
     
     full_response = None
     async for chunk in llm_with_tools.astream([system_prompt] + messages):

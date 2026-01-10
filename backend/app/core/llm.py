@@ -34,3 +34,17 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3):
         request_timeout=120,
         max_tokens=max_tokens
     )
+
+
+def get_thinking_instructions() -> str:
+    """
+    Returns system prompt instructions based on thinking verbosity setting.
+    """
+    verbosity = settings.THINKING_VERBOSITY.lower()
+    
+    if verbosity == "concise":
+        return "\n\n### THINKING PROCESS\n- Please be extremely concise in your internal thinking (<think> tags).\n- Focus ONLY on critical reasoning steps.\n- Avoid restating the obvious or verbose planning."
+    elif verbosity == "verbose":
+        return "\n\n### THINKING PROCESS\n- Please explore all possibilities in your internal thinking.\n- Verify assumptions and plan in detail."
+    
+    return "" # Normal - rely on model default

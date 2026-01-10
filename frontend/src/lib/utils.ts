@@ -46,7 +46,10 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 export function cleanContent(content: string): string {
     if (!content) return '';
     // Removes <think>...</think> (case insensitive) and handles newlines
-    return content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    let cleaned = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    // Also remove partial <think> tag at the end (for streaming)
+    cleaned = cleaned.replace(/<think>[\s\S]*$/i, '');
+    return cleaned.trim();
 }
 
 export type ContentBlock =
@@ -61,15 +64,26 @@ export function parseMixedContent(content: string): ContentBlock[] {
     if (!content) return [];
 
     const blocks: ContentBlock[] = [];
+
+    // Robustness: Check for missing opening <think> tag
+    // If we see </think> before any <think>, assume the content starts with a thought
+    const firstClose = content.indexOf('</think>');
+    const firstOpen = content.indexOf('<think>');
+
+    let processContent = content;
+    if (firstClose !== -1 && (firstOpen === -1 || firstClose < firstOpen)) {
+        processContent = '<think>' + content;
+    }
+
     const thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
     let lastIndex = 0;
     let match;
 
     // 1. Find all complete blocks
-    while ((match = thinkRegex.exec(content)) !== null) {
+    while ((match = thinkRegex.exec(processContent)) !== null) {
         // Add preceding text
         if (match.index > lastIndex) {
-            const text = content.slice(lastIndex, match.index);
+            const text = processContent.slice(lastIndex, match.index);
             if (text) blocks.push({ type: 'text', content: text });
         }
 
@@ -79,7 +93,7 @@ export function parseMixedContent(content: string): ContentBlock[] {
     }
 
     // 2. Check for remaining partial block (streaming)
-    const remaining = content.slice(lastIndex);
+    const remaining = processContent.slice(lastIndex);
     const partialThinkMatch = remaining.match(/<think>([\s\S]*)$/i);
 
     if (partialThinkMatch) {

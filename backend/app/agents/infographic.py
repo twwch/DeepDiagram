@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from app.state.state import AgentState
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_llm, get_thinking_instructions
 from app.core.context import set_context, get_messages, get_context
 
 llm = get_llm()
@@ -78,7 +78,7 @@ async def create_infographic(instruction: str):
     current_code = context.get("current_code", "")
     
     # Call LLM to generate the Infographic DSL
-    system_msg = INFOGRAPHIC_SYSTEM_PROMPT
+    system_msg = INFOGRAPHIC_SYSTEM_PROMPT + get_thinking_instructions()
     if current_code:
         system_msg += f"\n\n### CURRENT INFOGRAPHIC CODE\n```\n{current_code}\n```\nApply changes to this code."
         
@@ -97,6 +97,9 @@ async def create_infographic(instruction: str):
     
     # Robust Stripping: Extract from ``` blocks if present
     import re
+    # Remove any thinking tags first
+    dsl_str = re.sub(r'<think>[\s\S]*?</think>', '', dsl_str, flags=re.DOTALL)
+
     code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)```', dsl_str)
     if code_block_match:
         dsl_str = code_block_match.group(1).strip()
@@ -145,7 +148,7 @@ async def infographic_agent_node(state: AgentState):
     
     ### PROACTIVENESS:
     - BE DECISIVE. If you see an opportunity to add a "Did you know?" section or a "Key Metric", include it in the tool instruction.
-    """)
+    """ + get_thinking_instructions())
     
     full_response = None
     async for chunk in llm_with_tools.astream([system_prompt] + messages):

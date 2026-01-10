@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from app.state.state import AgentState
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_llm, get_thinking_instructions
 from app.core.context import set_context, get_messages, get_context
 
 llm = get_llm()
@@ -24,7 +24,8 @@ MINDMAP_SYSTEM_PROMPT = """You are a World-Class Strategic Thinking Partner and 
 - **PROMPT TO ACTION**: Include "Next Steps" or "Key Takeaways" branches where appropriate.
 - **LANGUAGE**: Match user's input language.
 
-Return ONLY the raw Markdown. No code fences.
+### OUTPUT FORMAT
+- Return ONLY the raw Markdown. No code fences.
 """
 
 @tool
@@ -39,7 +40,7 @@ async def create_mindmap(instruction: str):
     current_code = context.get("current_code", "")
     
     # Call LLM to generate the Mindmap code
-    system_msg = MINDMAP_SYSTEM_PROMPT
+    system_msg = MINDMAP_SYSTEM_PROMPT + get_thinking_instructions()
     if current_code:
         system_msg += f"\n\n### CURRENT MINDMAP CODE (Markdown)\n```markdown\n{current_code}\n```\nApply changes to this code."
 
@@ -51,6 +52,15 @@ async def create_mindmap(instruction: str):
     async for chunk in llm.astream(prompt):
         if chunk.content:
             full_content += chunk.content
+    
+    # Robust Stripping: Extract from ``` blocks if present
+    import re
+    # Remove any thinking tags first
+    full_content = re.sub(r'<think>[\s\S]*?</think>', '', full_content, flags=re.DOTALL)
+
+    code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)```', full_content)
+    if code_block_match:
+        full_content = code_block_match.group(1).strip()
     
     # Simply return the markdown so the frontend can render it.
     return full_content
@@ -79,7 +89,7 @@ async def mindmap_agent_node(state: AgentState):
 
     set_context(messages, current_code=current_code)
     
-    system_prompt = SystemMessage(content="""You are a Visionary Strategic Thinking Partner.
+    system_prompt = """You are a Visionary Strategic Thinking Partner.
     YOUR MISSION is to act as a Mental Model Consultant. When a user provides a topic, don't just "brainstorm" it—MAP the entire ecosystem.
     
     ### ORCHESTRATION RULES:
@@ -93,7 +103,7 @@ async def mindmap_agent_node(state: AgentState):
     
     ### PROACTIVENESS:
     - BE DECISIVE. If a topic has obvious "Pros/Cons" or "Future Risks", include them in the brainstormed instructions.
-    """)
+    """ + get_thinking_instructions()
     
     full_response = None
     async for chunk in llm_with_tools.astream([system_prompt] + messages):

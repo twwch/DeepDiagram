@@ -27,5 +27,8 @@ class Settings:
     
     # Model Selection
     MODEL_ID: str = os.getenv("MODEL_ID", "")
+    
+    # Thinking Control
+    THINKING_VERBOSITY: str = os.getenv("THINKING_VERBOSITY", "normal") # normal, concise, verbose
 
 settings = Settings()

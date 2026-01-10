@@ -1,25 +1,44 @@
-import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Brain } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronUp, BrainCircuit } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface ThinkingPanelProps {
     thought: string;
     isThinking?: boolean;
+    defaultExpanded?: boolean;
 }
 
-export const ThinkingPanel = ({ thought, isThinking = false }: ThinkingPanelProps) => {
-    const [isExpanded, setIsExpanded] = useState(isThinking);
+export const ThinkingPanel = ({ thought, isThinking = false, defaultExpanded = true }: ThinkingPanelProps) => {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const shouldAutoScroll = useRef(true);
 
-    // Auto-expand when thinking starts, auto-collapse when done
+    // Auto-collapse logic when thinking finishes (unchanged)
     useEffect(() => {
-        if (isThinking) {
-            setIsExpanded(true);
-        } else {
-            // When thinking finishes, collapse after a short delay
-            const timer = setTimeout(() => setIsExpanded(false), 500);
+        if (!isThinking && thought) {
+            const timer = setTimeout(() => {
+                setIsExpanded(false);
+            }, 2000); // Collapse 2s after thinking ends
             return () => clearTimeout(timer);
         }
-    }, [isThinking]);
+        if (isThinking) {
+            setIsExpanded(true);
+        }
+    }, [isThinking, thought]);
+
+    // Auto-scroll logic
+    useEffect(() => {
+        if (shouldAutoScroll.current && scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [thought, isExpanded]);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        // If user is within 50px of the bottom, enable auto-scroll. Otherwise disable it.
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+        shouldAutoScroll.current = isAtBottom;
+    };
 
     if (!thought) return null;
 
@@ -34,7 +53,7 @@ export const ThinkingPanel = ({ thought, isThinking = false }: ThinkingPanelProp
                 title={isExpanded ? "Collapse thinking process" : "Expand thinking process"}
             >
                 <div className="flex items-center gap-2 text-slate-600">
-                    <Brain className={cn("w-4 h-4", isThinking ? "text-purple-600 animate-pulse" : "text-slate-400")} />
+                    <BrainCircuit className={cn("w-4 h-4", isThinking ? "text-purple-600 animate-pulse" : "text-slate-400")} />
                     <span className="text-xs font-semibold uppercase tracking-wider">
                         {isThinking ? "Thinking..." : "Thinking Process"}
                     </span>
@@ -48,10 +67,14 @@ export const ThinkingPanel = ({ thought, isThinking = false }: ThinkingPanelProp
             <div
                 className={cn(
                     "overflow-hidden transition-all duration-300 ease-in-out",
-                    isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                    isExpanded ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
                 )}
             >
-                <div className="p-4 pt-0 text-sm text-slate-600 font-mono whitespace-pre-wrap leading-relaxed border-t border-slate-100/50 shadow-inner">
+                <div
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    className="p-4 pt-0 text-sm text-slate-600 font-mono whitespace-pre-wrap leading-relaxed border-t border-slate-100/50 shadow-inner overflow-y-auto max-h-[300px] custom-scrollbar"
+                >
                     {thought}
                     {isThinking && <span className="inline-block w-2 h-4 ml-1 align-middle bg-purple-500 animate-pulse" />}
                 </div>

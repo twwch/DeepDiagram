@@ -43,7 +43,10 @@ const convertToMarkdown = (node: any, level: number = 1): string => {
 
 export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
     const { isStreamingCode } = useChatStore();
-    const currentCode = cleanContent(content);
+    let currentCode = cleanContent(content);
+    // Robustness: Strip markdown code fences if present
+    currentCode = currentCode.replace(/^```(?:\w+)?\s*\n/, '').replace(/```\s*$/, '').trim();
+
     const mindmapRef = useRef<HTMLDivElement>(null);
     const mindmapInstanceRef = useRef<any>(null);
     const [error, setError] = useState<string | null>(null);

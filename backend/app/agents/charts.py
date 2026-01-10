@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from app.state.state import AgentState
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_llm, get_thinking_instructions
 from app.core.context import set_context, get_messages, get_context
 import json
 
@@ -18,6 +18,7 @@ CHARTS_SYSTEM_PROMPT = """You are a World-Class Data Visualization Specialist. Y
 ### OUTPUT INSTRUCTIONS
 - Return ONLY a valid JSON string representing the ECharts 'option' object.
 - **Do NOT** wrap in markdown code blocks. Just the raw JSON string.
+- **Strict JSON Syntax**: No comments (// or /* */), no trailing commas, double quotes for keys.
 
 ### ECHARTS CONFIGURATION TIPS
 - **Structure**:
@@ -50,7 +51,7 @@ async def create_chart(instruction: str):
     current_code = context.get("current_code", "")
     
     # Call LLM to generate the ECharts option
-    system_msg = CHARTS_SYSTEM_PROMPT
+    system_msg = CHARTS_SYSTEM_PROMPT + get_thinking_instructions()
     if current_code:
         system_msg += f"\n\n### CURRENT CHART CODE\n```json\n{current_code}\n```\nApply changes to this code."
         
@@ -65,12 +66,18 @@ async def create_chart(instruction: str):
     
     option_str = full_content
     
-    # Strip potential markdown boxes
+    # Robust JSON Extraction: Find the substring from first '{' to last '}'
     import re
-    # Remove starting markdown fence (with or without language)
-    option_str = re.sub(r'^```\w*\n?', '', option_str.strip())
-    # Remove ending markdown fence
-    option_str = re.sub(r'\n?```$', '', option_str.strip())
+    # Remove any thinking tags first just in case
+    option_str = re.sub(r'<think>[\s\S]*?</think>', '', option_str, flags=re.DOTALL)
+    
+    match = re.search(r'(\{[\s\S]*\})', option_str)
+    if match:
+        option_str = match.group(1)
+    else:
+        # Fallback: simple markdown strip
+        option_str = re.sub(r'^```\w*\n?', '', option_str.strip())
+        option_str = re.sub(r'\n?```$', '', option_str.strip())
     
     return option_str.strip()
 
@@ -110,7 +117,7 @@ async def charts_agent_node(state: AgentState):
     
     ### PROACTIVENESS:
     - BE DECISIVE. If you see an opportunity to add a "Goal Target" line or "YoY Growth" metrics, include it in the tool instruction.
-    """)
+    """ + get_thinking_instructions())
     
     full_response = None
     async for chunk in llm_with_tools.astream([system_prompt] + messages):

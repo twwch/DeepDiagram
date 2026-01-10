@@ -39,7 +39,7 @@ const AGENTS = [
         features: ['Logic flows', 'Step-by-step processes', 'Conditional routing'],
         icon: Workflow,
         color: 'indigo',
-        demoInput: '@flowchart draw a professional enterprise-grade CI/CD pipeline for a high-traffic e-commerce platform, including auto-scaling, blue-green deployment, and canary testing gates.'
+        demoInput: '@flowchart draw a user registration logic.'
     },
     {
         id: 'mindmap',
@@ -48,7 +48,7 @@ const AGENTS = [
         features: ['Idea mapping', 'Knowledge structure', 'Brainstorming'],
         icon: Network,
         color: 'amber',
-        demoInput: '@mindmap create a 5-level deep strategic mindmap for a global expansion plan of an AI startup, covering Product/Market fit, Localization, Scaling, and Competitive moats.'
+        demoInput: '@mindmap plan a marketing strategy for a new coffee shop.'
     },
     {
         id: 'mermaid',
@@ -57,7 +57,7 @@ const AGENTS = [
         features: ['Sequence diagrams', 'Gantt charts', 'Text-to-visual'],
         icon: Code2,
         color: 'emerald',
-        demoInput: '@mermaid draw a complex sequence diagram for a multi-factor authentication flow involving a mobile app, auth server, resource provider, and session database.'
+        demoInput: '@mermaid sequence diagram for a payment process.'
     },
     {
         id: 'charts',
@@ -66,7 +66,7 @@ const AGENTS = [
         features: ['Data visualization', 'Dashboard metrics', 'Trend analysis'],
         icon: BarChart3,
         color: 'rose',
-        demoInput: '@charts draw a professional financial dashboard showing the last 12 months of SaaS performance metrics including MRR growth, Churn rate vs Acquisition cost, and LTV projections.'
+        demoInput: '@charts show monthly revenue growth for the last year.'
     },
     {
         id: 'drawio',
@@ -75,7 +75,7 @@ const AGENTS = [
         features: ['Cloud architecture', 'Network topology', 'Professional drafting'],
         icon: PenTool,
         color: 'blue',
-        demoInput: '@drawio architect a high-availability AWS cloud system with Multi-AZ VPC, subnets, ELB, EC2 auto-scaling groups, and a RDS Aurora cluster with read replicas.'
+        demoInput: '@drawio cloud architecture for a web application.'
     },
     {
         id: 'infographic',
@@ -84,7 +84,7 @@ const AGENTS = [
         features: ['Data posters', 'Visual storytelling', 'Creative layouts'],
         icon: BarChart3,
         color: 'violet',
-        demoInput: '@infographic draw a professional infographic roadmap for the future of Generative AI (2024-2030), showing key milestones, societal impacts, and industry shifts.'
+        demoInput: '@infographic timeline of AI history.'
     },
 ];
 
@@ -256,8 +256,19 @@ export const ChatPanel = () => {
         }
     };
 
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const shouldAutoScrollRef = useRef(true);
+
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        }
+    };
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+        shouldAutoScrollRef.current = isAtBottom;
     };
 
     useEffect(() => {
@@ -265,8 +276,22 @@ export const ChatPanel = () => {
             isPagingRef.current = false;
             return;
         }
-        scrollToBottom();
+
+        // Auto-scroll only if strictly at bottom or if it's a new user message (length changed effectively)
+        // But for streaming updates (same length, content changed), respect user scroll position.
+        // Simple heuristic: rely on shouldAutoScrollRef which tracks user intention
+        if (shouldAutoScrollRef.current) {
+            scrollToBottom();
+        }
     }, [messages]);
+
+    // Force scroll to bottom when starting a new generation (user sent message)
+    useEffect(() => {
+        if (isLoading) {
+            shouldAutoScrollRef.current = true;
+            scrollToBottom();
+        }
+    }, [isLoading]);
 
 
     useEffect(() => {
@@ -654,7 +679,14 @@ export const ChatPanel = () => {
 
                                     // Mark whatever was last (Tool or result) as done
                                     if (lastStepEnd?.isStreaming) {
-                                        updateLastStepContent(data.output || lastStepEnd.content || '', false, 'done', lastStepEnd.type, false, eventSessionId);
+                                        let finalContent = data.output || lastStepEnd.content || '';
+                                        // Preservation Fix: If we were streaming a Result (tool_end), 
+                                        // the existing content (accumulated chunks) is definitely what we want.
+                                        // The data.output might be a summarized result or cleaned code from backend that loses thoughts.
+                                        if (lastStepEnd.type === 'tool_end' && lastStepEnd.content) {
+                                            finalContent = lastStepEnd.content;
+                                        }
+                                        updateLastStepContent(finalContent, false, 'done', lastStepEnd.type, false, eventSessionId);
                                     }
 
                                     // Ensure a Result step exists if output came but no Result step was active
@@ -823,7 +855,11 @@ export const ChatPanel = () => {
 
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 space-y-6"
+            >
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center min-h-[600px] text-slate-400 space-y-12 py-20 relative overflow-hidden">
                         {/* Mesh Gradient Background Decorative Elements */}

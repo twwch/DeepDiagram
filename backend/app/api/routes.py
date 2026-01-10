@@ -151,6 +151,9 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
     accumulated_steps = []
     selected_agent = None
     
+    # Buffer to capture raw streamed content (including thoughts) for the current tool logic
+    current_tool_content = ""
+    
     logger.info(f"🚀 Starting LLM stream with {len(full_messages)} messages, is_retry={request.is_retry}")
     
     assistant_msg_saved = False
@@ -191,6 +194,7 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
                         if content:
                             is_tool_stream = node_name.endswith("_tools")
                             if is_tool_stream:
+                                current_tool_content += content
                                 yield f"event: tool_code\ndata: {json.dumps({'content': content, 'session_id': session_id})}\n\n"
                             else:
                                 full_response_content += content
@@ -209,6 +213,9 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
                         
                     # Add tool start step
                     tool_input = json.dumps(data.get("input"))
+                    
+                    # Reset buffer for new tool
+                    current_tool_content = ""
                     
                     step = {
                         "type": "tool_start",
@@ -229,10 +236,14 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
                     
                     # Update steps
                     if accumulated_steps:
+                        # If we captured raw content (with thoughts), use it for persistence
+                        # fallback to output (cleaned) if no stream was captured (e.g. cache or simple tool)
+                        final_content = current_tool_content if current_tool_content else (output if isinstance(output, str) else json.dumps(output))
+                        
                         accumulated_steps.append({
                             "type": "tool_end",
                             "name": event["name"],
-                            "content": output if isinstance(output, str) else json.dumps(output),
+                            "content": final_content,
                             "status": "done",
                             "timestamp": int(datetime.utcnow().timestamp() * 1000)
                         })

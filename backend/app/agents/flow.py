@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from app.state.state import AgentState
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_llm, get_thinking_instructions
 from app.core.context import set_context, get_messages, get_context
 
 llm = get_llm()
@@ -28,7 +28,14 @@ FLOW_SYSTEM_PROMPT = """You are a Senior Business Process Analyst and Flowchart 
   - Horizontal: 400px for branches.
 - **LANGUAGE**: Match user's input language.
 
-Return ONLY raw JSON. No markdown fences.
+### OUTPUT FORMAT
+- Return ONLY raw JSON. No markdown fences.
+- **Strict JSON Syntax**: No comments, keys must be double-quoted.
+- **Structure**:
+  {
+    "nodes": [ { "id": "1", "type": "start", "position": { "x": 0, "y": 0 }, "data": { "label": "Start" } }, ... ],
+    "edges": [ { "id": "e1-2", "source": "1", "target": "2", "animated": true }, ... ]
+  }
 """
 
 @tool
@@ -43,7 +50,7 @@ async def create_flow(instruction: str):
     current_code = context.get("current_code", "")
     
     # Call LLM to generate the Flow JSON
-    system_msg = FLOW_SYSTEM_PROMPT
+    system_msg = FLOW_SYSTEM_PROMPT + get_thinking_instructions()
     if current_code:
         system_msg += f"\n\n### CURRENT FLOWCHART CODE (JSON)\n```json\n{current_code}\n```\nApply changes to this code."
 
@@ -58,10 +65,17 @@ async def create_flow(instruction: str):
     
     json_str = full_content
     
-    # Strip potential markdown boxes
+    # Robust JSON Extraction: Find the substring from first '{' to last '}'
     import re
-    cleaned_json = re.sub(r'^```\w*\n?', '', json_str.strip())
-    cleaned_json = re.sub(r'\n?```$', '', cleaned_json.strip())
+    # Remove any thinking tags first
+    json_str = re.sub(r'<think>[\s\S]*?</think>', '', json_str, flags=re.DOTALL)
+    
+    match = re.search(r'(\{[\s\S]*\})', json_str)
+    if match:
+        cleaned_json = match.group(1)
+    else:
+        cleaned_json = re.sub(r'^```\w*\n?', '', json_str.strip())
+        cleaned_json = re.sub(r'\n?```$', '', cleaned_json.strip())
     
     return cleaned_json.strip()
 
@@ -101,7 +115,7 @@ async def flow_agent_node(state: AgentState):
     
     ### PROACTIVENESS:
     - BE DECISIVE. If a step looks like it needs "Manual Approval" or a "Timeout", include it in the optimized instructions.
-    """)
+    """ + get_thinking_instructions())
     
     full_response = None
     async for chunk in llm_with_tools.astream([system_prompt] + messages):
