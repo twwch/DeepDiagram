@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: http://deepd.cturing.cn/sitemap.xml
