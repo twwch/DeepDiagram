@@ -301,14 +301,6 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
 
 @router.post("/chat/completions")
 async def chat_completions(request: ChatRequest, db: AsyncSession = Depends(get_session)):
-    # BRUTE FORCE LOGGING TO FILE
-    try:
-        with open("/Users/chenhao/codes/myself/DeepDiagram/llm_debug.log", "a") as f:
-            import datetime
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            f.write(f"[{timestamp}] INCOMING REQUEST: model_id={request.model_id} | base_url={request.base_url} | api_key={request.api_key[:6] if request.api_key else 'None'}...\n")
-    except:
-        pass
         
     return StreamingResponse(event_generator(request, db), media_type="text/event-stream")
 

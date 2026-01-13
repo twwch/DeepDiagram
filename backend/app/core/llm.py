@@ -40,14 +40,6 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3, api_key: st
 
         key_hint = f"{final_api_key[:6]}...{final_api_key[-4:]}" if (final_api_key and len(final_api_key) > 10) else "REDACTED"
         
-        # BRUTE FORCE LOGGING TO FILE
-        try:
-            with open("/Users/chenhao/codes/myself/DeepDiagram/llm_debug.log", "a") as f:
-                import datetime
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"[{timestamp}] PROVIDER: {provider} | MODEL: {final_model} | BASE: {final_base_url} | KEY: {key_hint}\n")
-        except:
-            pass
 
         return ChatOpenAI(
             api_key=final_api_key,
@@ -59,16 +51,6 @@ def get_llm(model_name: str | None = None, temperature: float = 0.3, api_key: st
             max_tokens=max_tokens
         )
     
-    # FALLBACK LOGGING
-    try:
-        with open("/Users/chenhao/codes/myself/DeepDiagram/llm_debug.log", "a") as f:
-            import datetime
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            f.write(f"[{timestamp}] FALLBACK TO DEFAULT (OpenAI/NVIDIA)\n")
-            f.write(f"  - Key: {settings.OPENAI_API_KEY[:6]}...\n")
-            f.write(f"  - Base: {settings.OPENAI_BASE_URL}\n")
-    except:
-        pass
 
     # Priority: DeepSeek if key is present
     if settings.DEEPSEEK_API_KEY:

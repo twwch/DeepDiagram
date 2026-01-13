@@ -1,6 +1,0 @@
-[2026-01-13 12:13:30] INCOMING REQUEST: model_id=minimaxai/minimax-m2.1 | base_url=https://integrate.api.nvidia.com/v1 | api_key=nvapi-...
-[2026-01-13 12:13:30] PROVIDER: NVIDIA | MODEL: minimaxai/minimax-m2.1 | BASE: https://integrate.api.nvidia.com/v1 | KEY: nvapi-..._D_t
-[2026-01-13 12:13:33] PROVIDER: NVIDIA | MODEL: minimaxai/minimax-m2.1 | BASE: https://integrate.api.nvidia.com/v1 | KEY: nvapi-..._D_t
-[2026-01-13 12:13:39] INCOMING REQUEST: model_id=minimaxai/minimax-m2.1 | base_url=https://integrate.api.nvidia.com/v1 | api_key=nvapi-...
-[2026-01-13 12:13:39] PROVIDER: NVIDIA | MODEL: minimaxai/minimax-m2.1 | BASE: https://integrate.api.nvidia.com/v1 | KEY: nvapi-..._D_t
-[2026-01-13 12:13:41] PROVIDER: NVIDIA | MODEL: minimaxai/minimax-m2.1 | BASE: https://integrate.api.nvidia.com/v1 | KEY: nvapi-..._D_t
