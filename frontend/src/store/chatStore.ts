@@ -458,6 +458,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         role: m.role,
                         content: m.content,
                         images: m.images,
+                        files: m.files,
                         steps: m.steps,
                         agent: m.agent,
                         turn_index: m.turn_index,

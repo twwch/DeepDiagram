@@ -1235,10 +1235,14 @@ export const ChatPanel = () => {
                                     const thoughtBlocks = blocks.filter(b => b.type === 'thought').map(b => ({ content: b.content, isThinking: b.isThinking }));
                                     const otherBlocks = blocks.filter(b => b.type !== 'thought');
 
+                                    // Strict check: Only show trace if there are actual steps or meaningful thoughts
+                                    const hasSteps = msg.steps && msg.steps.length > 0;
+                                    const hasThoughts = thoughtBlocks.some(t => t.content && t.content.trim().length > 0);
+
                                     return (
                                         <div className="flex flex-col gap-2">
                                             {/* Unified Trace: Interleaves Thinking and Steps */}
-                                            {((msg.steps && msg.steps.length > 0) || thoughtBlocks.length > 0) && (
+                                            {(hasSteps || hasThoughts) && (
                                                 <ExecutionTrace
                                                     steps={msg.steps || []}
                                                     thoughts={thoughtBlocks}

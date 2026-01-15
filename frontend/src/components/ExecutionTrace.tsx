@@ -245,16 +245,20 @@ const StepItem = ({ step, activeAgent, messageIndex, associatedResult, onRetry, 
 
 export const ExecutionTrace = ({ steps, thoughts = [], messageIndex, onRetry, onSync }: ExecutionTraceProps) => {
     // Determine if we should show the block at all
-    const hasVisibleSteps = steps.some(s => {
+    const visibleSteps = steps.filter(s => {
         if (s.type === 'doc_analysis') return false;
         if (s.type === 'agent_select' && (s.name === 'general' || s.name === 'general_agent')) return false;
+        if (s.type === 'agent_end') return false;
         return true;
-    }) || thoughts.length > 0;
+    });
+    const hasVisibleSteps = visibleSteps.length > 0;
+
+    const hasVisibleThoughts = thoughts.some(t => t.content && t.content.trim().length > 0);
 
     // Default open if active
     const [isOpen, setIsOpen] = useState(true);
 
-    if (!hasVisibleSteps) return null;
+    if (!hasVisibleSteps && !hasVisibleThoughts) return null;
 
     return (
         <div className="mb-3 border border-slate-200 rounded-lg overflow-hidden">
