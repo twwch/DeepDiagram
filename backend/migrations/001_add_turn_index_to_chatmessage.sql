@@ -1,2 +1,10 @@
 -- Migration to add turn_index to chatmessage table
--- ALTER TABLE chatmessage ADD COLUMN turn_index INTEGER DEFAULT 0;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'chatmessage' AND column_name = 'turn_index'
+    ) THEN
+        ALTER TABLE chatmessage ADD COLUMN turn_index INTEGER DEFAULT 0;
+    END IF;
+END $$;
