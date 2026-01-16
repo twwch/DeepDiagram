@@ -25,10 +25,16 @@ if (typeof window !== 'undefined') {
 export const setCanvasState = (state: Partial<CanvasState>) => {
     if (typeof window === 'undefined') return;
 
+    // Only increment renderKey if explicitly provided in the state update
+    // This prevents infinite re-render loops
+    const newRenderKey = state.renderKey !== undefined
+        ? state.renderKey
+        : window.__canvasState.renderKey;
+
     window.__canvasState = {
         ...window.__canvasState,
         ...state,
-        renderKey: (window.__canvasState.renderKey || 0) + 1
+        renderKey: newRenderKey
     };
 
     // Notify all listeners

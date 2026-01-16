@@ -41,6 +41,104 @@ const convertToMarkdown = (node: any, level: number = 1): string => {
     return md;
 };
 
+// Helper to fit mindmap with padding by calculating actual bounding box
+const fitWithPadding = (me: any) => {
+    if (!me || !me.container) return;
+
+    const container = me.container as HTMLElement;
+    const mapContainer = container.querySelector('.map-container') as HTMLElement;
+    if (!mapContainer) {
+        me.scaleFit();
+        me.toCenter();
+        return;
+    }
+
+    // First use the built-in scaleFit to get base positioning
+    me.scaleFit();
+    me.toCenter();
+
+    // Then apply additional adjustment after a short delay
+    requestAnimationFrame(() => {
+        // Get all topic elements to calculate true bounding box
+        const topics = mapContainer.querySelectorAll('.topic');
+        if (!topics.length) return;
+
+        const containerRect = container.getBoundingClientRect();
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+        topics.forEach((topic) => {
+            const rect = topic.getBoundingClientRect();
+            // Position relative to container
+            const left = rect.left - containerRect.left;
+            const top = rect.top - containerRect.top;
+            const right = left + rect.width;
+            const bottom = top + rect.height;
+
+            minX = Math.min(minX, left);
+            maxX = Math.max(maxX, right);
+            minY = Math.min(minY, top);
+            maxY = Math.max(maxY, bottom);
+        });
+
+        if (minX === Infinity) return;
+
+        const contentWidth = maxX - minX;
+        const contentHeight = maxY - minY;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+
+        // Check if content is clipped on any side
+        const leftClip = minX < 0 ? -minX : 0;
+        const rightClip = maxX > containerWidth ? maxX - containerWidth : 0;
+        const topClip = minY < 0 ? -minY : 0;
+        const bottomClip = maxY > containerHeight ? maxY - containerHeight : 0;
+
+        const isClipped = leftClip > 0 || rightClip > 0 || topClip > 0 || bottomClip > 0;
+
+        if (isClipped) {
+            // Need to scale down more and recenter
+            const currentScale = me.scaleVal || 1;
+
+            // Calculate required scale to fit with 15% padding on each side
+            const paddingRatio = 0.70;
+            const requiredScaleX = (containerWidth * paddingRatio) / contentWidth;
+            const requiredScaleY = (containerHeight * paddingRatio) / contentHeight;
+            const newScale = Math.min(requiredScaleX, requiredScaleY, currentScale) * currentScale;
+
+            me.scale(newScale);
+
+            // After scaling, recenter based on new content position
+            requestAnimationFrame(() => {
+                const newContainerRect = container.getBoundingClientRect();
+                let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
+
+                topics.forEach((topic) => {
+                    const rect = topic.getBoundingClientRect();
+                    const left = rect.left - newContainerRect.left;
+                    const top = rect.top - newContainerRect.top;
+                    newMinX = Math.min(newMinX, left);
+                    newMaxX = Math.max(newMaxX, left + rect.width);
+                    newMinY = Math.min(newMinY, top);
+                    newMaxY = Math.max(newMaxY, top + rect.height);
+                });
+
+                // Calculate how much to move to center
+                const contentCenterX = (newMinX + newMaxX) / 2;
+                const contentCenterY = (newMinY + newMaxY) / 2;
+                const containerCenterX = containerWidth / 2;
+                const containerCenterY = containerHeight / 2;
+
+                const dx = containerCenterX - contentCenterX;
+                const dy = containerCenterY - contentCenterY;
+
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                    me.move(dx, dy);
+                }
+            });
+        }
+    });
+};
+
 export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
     const { isStreamingCode } = useChatStore();
     let currentCode = cleanContent(content);
@@ -80,8 +178,7 @@ export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) 
         },
         resetView: () => {
             if (mindmapInstanceRef.current) {
-                mindmapInstanceRef.current.scaleFit();
-                mindmapInstanceRef.current.toCenter();
+                fitWithPadding(mindmapInstanceRef.current);
             }
         }
     }));
@@ -112,16 +209,14 @@ export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) 
                 me.init(data);
 
                 setTimeout(() => {
-                    me.scaleFit();
-                    me.toCenter();
+                    fitWithPadding(me);
                 }, 0);
 
                 mindmapInstanceRef.current = me;
             } else {
                 mindmapInstanceRef.current.init(data);
                 if (isStreamingCode) {
-                    mindmapInstanceRef.current.scaleFit();
-                    mindmapInstanceRef.current.toCenter();
+                    fitWithPadding(mindmapInstanceRef.current);
                 }
             }
             useChatStore.getState().reportSuccess();
@@ -149,8 +244,7 @@ export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) 
     useEffect(() => {
         if (!isStreamingCode && mindmapInstanceRef.current && currentCode) {
             setTimeout(() => {
-                mindmapInstanceRef.current?.scaleFit();
-                mindmapInstanceRef.current?.toCenter();
+                fitWithPadding(mindmapInstanceRef.current);
             }, 100);
         }
     }, [isStreamingCode, currentCode]);
