@@ -85,6 +85,16 @@ export const ChartsAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
 
             if (!options) throw new Error("Could not parse chart configuration");
 
+            // Handle nested structure: {"design_concept": "...", "code": "..."}
+            if (options.code && !options.series && !options.xAxis && !options.yAxis) {
+                if (typeof options.code === 'string') {
+                    options = tryParse(options.code);
+                } else {
+                    options = options.code;
+                }
+                if (!options) throw new Error("Could not parse chart configuration from code field");
+            }
+
             // Auto-enrichment for consistency
             const hasXAxis = Array.isArray(options.xAxis) ? options.xAxis.length > 0 : !!options.xAxis;
             const hasYAxis = Array.isArray(options.yAxis) ? options.yAxis.length > 0 : !!options.yAxis;

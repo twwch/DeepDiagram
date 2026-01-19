@@ -68,7 +68,7 @@ const AGENTS = [
         features: ['Data posters', 'Visual storytelling', 'Creative layouts'],
         icon: BarChart3,
         color: 'violet',
-        demoInput: '@infographic comparing the nutritional benefits of 5 superfoods (Salmon, Blueberries, Spinach, Quinoa, Almonds) with colorful icons, health stats, and serving suggestions.'
+        demoInput: '@infographic a revenue growth pie chart showing 3-year comparison: 2021 $120M initial phase, 2022 $210M breakthrough growth, 2023 $340M scale effect, 2024 target $500M ambitious goal.'
     },
 ];
 

@@ -175,6 +175,18 @@ export const MermaidAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) 
                     cleanCode = match[1].trim();
                 }
 
+                // Handle nested JSON structure: {"design_concept": "...", "code": "..."}
+                if (cleanCode.startsWith('{') && cleanCode.includes('"code"')) {
+                    try {
+                        const parsed = JSON.parse(cleanCode);
+                        if (parsed.code) {
+                            cleanCode = typeof parsed.code === 'string' ? parsed.code : JSON.stringify(parsed.code);
+                        }
+                    } catch {
+                        // Not valid JSON, continue with original cleanCode
+                    }
+                }
+
                 await mermaid.parse(cleanCode);
 
                 const id = `mermaid-${Date.now()}`;

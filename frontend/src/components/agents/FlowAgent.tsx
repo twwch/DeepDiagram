@@ -361,6 +361,18 @@ export const FlowAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => 
                 }
 
                 if (!data) throw new Error("Could not parse flow configuration");
+
+                // Handle nested structure: {"design_concept": "...", "code": "..."}
+                if (data.code && !data.nodes) {
+                    // code field might be a string or an object
+                    if (typeof data.code === 'string') {
+                        data = tryParse(data.code);
+                    } else {
+                        data = data.code;
+                    }
+                    if (!data) throw new Error("Could not parse flow configuration from code field");
+                }
+
                 if (data.nodes && Array.isArray(data.nodes)) {
                     setError(null);
                     // V4 STRUCTURAL FIX: Sanitize and Fix AI garbage

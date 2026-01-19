@@ -197,8 +197,22 @@ export const MindmapAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) 
 
         try {
             setError(null);
+
+            // Handle nested JSON structure: {"design_concept": "...", "code": "..."}
+            let codeToRender = currentCode;
+            if (codeToRender.trim().startsWith('{') && codeToRender.includes('"code"')) {
+                try {
+                    const parsed = JSON.parse(codeToRender);
+                    if (parsed.code) {
+                        codeToRender = typeof parsed.code === 'string' ? parsed.code : JSON.stringify(parsed.code);
+                    }
+                } catch {
+                    // Not valid JSON, continue with original code
+                }
+            }
+
             const transformer = new Transformer();
-            const { root } = transformer.transform(currentCode);
+            const { root } = transformer.transform(codeToRender);
             const data = {
                 nodeData: convertToMindElixir(root)
             };

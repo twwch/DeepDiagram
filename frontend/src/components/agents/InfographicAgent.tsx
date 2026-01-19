@@ -90,7 +90,10 @@ if (AntVInfographic.registerResourceLoader) {
 
 export const InfographicAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) => {
     const { isStreamingCode } = useChatStore();
-    let currentCode = cleanContent(content);
+
+    // Ensure content is a string
+    let currentCode = typeof content === 'string' ? cleanContent(content) : '';
+
     // Fix double-escaped newlines from LLM output
     if (currentCode.includes('\\n') && !currentCode.includes('\n')) {
         currentCode = currentCode.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
@@ -109,6 +112,19 @@ export const InfographicAgent = forwardRef<AgentRef, AgentProps>(({ content }, r
         }
 
         let dslContent = currentCode.trim();
+
+        // Handle nested JSON structure: {"design_concept": "...", "code": "..."}
+        if (dslContent.startsWith('{') && dslContent.includes('"code"')) {
+            try {
+                const parsed = JSON.parse(dslContent);
+                if (parsed.code) {
+                    dslContent = typeof parsed.code === 'string' ? parsed.code : '';
+                }
+            } catch {
+                // Not valid JSON, continue with original dslContent
+            }
+        }
+
         // Robust Markdown code block stripping
         const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g;
         const matches = [...dslContent.matchAll(codeBlockRegex)];
@@ -219,6 +235,12 @@ export const InfographicAgent = forwardRef<AgentRef, AgentProps>(({ content }, r
         try {
             setError(null);
 
+            // Validate that activeBlock is a non-empty string before rendering
+            if (typeof activeBlock !== 'string' || !activeBlock.trim()) {
+                console.warn('Invalid infographic block: not a string or empty');
+                return;
+            }
+
             // Wait for icons etc.
             infographic.render(activeBlock);
 
@@ -228,6 +250,18 @@ export const InfographicAgent = forwardRef<AgentRef, AgentProps>(({ content }, r
             }
         } catch (e) {
             console.error("Infographic error", e);
+            const errorMessage = e instanceof Error ? e.message : String(e);
+
+            // Handle specific AntV internal errors
+            if (errorMessage.includes('indexOf is not a function')) {
+                const msg = "Infographic DSL contains invalid data types. Please regenerate.";
+                if (!isStreamingCode) {
+                    setError(msg);
+                    useChatStore.getState().reportError(msg);
+                }
+                return;
+            }
+
             const msg = e instanceof Error ? e.message : "Failed to render infographic";
             if (!isStreamingCode) {
                 setError(msg);

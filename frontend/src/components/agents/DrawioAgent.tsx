@@ -91,6 +91,19 @@ export const DrawioAgent = forwardRef<AgentRef, AgentProps>(({ content }, ref) =
     useEffect(() => {
         if (!isStreamingCode && iframeReady && currentCode && drawioIframeRef.current) {
             let cleanXml = currentCode.replace(/```xml\s?/, '').replace(/```/, '').trim();
+
+            // Handle nested JSON structure: {"design_concept": "...", "code": "..."}
+            if (cleanXml.startsWith('{') && cleanXml.includes('"code"')) {
+                try {
+                    const parsed = JSON.parse(cleanXml);
+                    if (parsed.code) {
+                        cleanXml = typeof parsed.code === 'string' ? parsed.code : '';
+                    }
+                } catch {
+                    // Not valid JSON, continue with original cleanXml
+                }
+            }
+
             if (cleanXml.startsWith('<')) {
                 const win = drawioIframeRef.current.contentWindow;
                 win?.postMessage(JSON.stringify({
