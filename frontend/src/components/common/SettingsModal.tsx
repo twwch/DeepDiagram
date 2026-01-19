@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, Shield, Info, Plus, Trash2, Edit2 } from 'lucide-react';
+import { X, Save, Shield, Info, Plus, Trash2, Edit2, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import type { ModelConfig } from '../../store/settingsStore';
 import { cn } from '../../lib/utils';
@@ -13,6 +13,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const { models, activeModelId, addModel, removeModel, updateModel, setActiveModelId } = useSettingsStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [form, setForm] = useState<Omit<ModelConfig, 'id'>>({
         name: '',
         modelId: '',
@@ -26,10 +28,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setForm({ name: '', modelId: '', apiKey: '', baseUrl: '' });
         setEditingId(null);
         setIsAdding(false);
+        setTestResult(null);
     };
 
-    const handleSave = () => {
+    const testModelConnection = async (): Promise<boolean> => {
+        setIsTesting(true);
+        setTestResult(null);
+
+        try {
+            const response = await fetch('/api/test-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model_id: form.modelId.trim(),
+                    api_key: form.apiKey.trim(),
+                    base_url: form.baseUrl.trim()
+                })
+            });
+
+            const result = await response.json();
+            setTestResult(result);
+            return result.success;
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Connection test failed';
+            setTestResult({ success: false, message: errorMsg });
+            return false;
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
+    const handleSave = async () => {
         if (!form.name || !form.modelId || !form.apiKey || !form.baseUrl) return;
+
+        // Test connection before saving
+        const isValid = await testModelConnection();
+        if (!isValid) {
+            return; // Don't save if test fails
+        }
 
         const trimmedForm = {
             name: form.name.trim(),
@@ -40,10 +76,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         if (editingId) {
             updateModel(editingId, trimmedForm);
+            setTestResult({ success: true, message: '配置更新成功！' });
         } else {
             addModel(trimmedForm);
+            setTestResult({ success: true, message: '模型添加成功！' });
         }
-        resetForm();
+
+        // Show success message briefly, then reset form
+        setTimeout(() => {
+            resetForm();
+        }, 1500);
     };
 
     const startEdit = (model: ModelConfig) => {
@@ -197,7 +239,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             placeholder="https://api.anthropic.com/v1"
                                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                             value={form.baseUrl}
-                                            onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+                                            onChange={(e) => { setForm({ ...form, baseUrl: e.target.value }); setTestResult(null); }}
                                         />
                                     </div>
 
@@ -211,7 +253,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 placeholder="claude-3-7-sonnet..."
                                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                                 value={form.modelId}
-                                                onChange={(e) => setForm({ ...form, modelId: e.target.value })}
+                                                onChange={(e) => { setForm({ ...form, modelId: e.target.value }); setTestResult(null); }}
                                             />
                                         </div>
                                         <div>
@@ -223,18 +265,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 placeholder="sk-..."
                                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
                                                 value={form.apiKey}
-                                                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                                                onChange={(e) => { setForm({ ...form, apiKey: e.target.value }); setTestResult(null); }}
                                             />
                                         </div>
                                     </div>
 
+                                    {/* Test Result Message */}
+                                    {testResult && (
+                                        <div className={cn(
+                                            "p-3 rounded-xl flex items-center gap-2 text-sm animate-in slide-in-from-top-2 duration-200",
+                                            testResult.success
+                                                ? "bg-green-50 border border-green-200 text-green-700"
+                                                : "bg-red-50 border border-red-200 text-red-700"
+                                        )}>
+                                            {testResult.success ? (
+                                                <CheckCircle className="w-4 h-4 shrink-0" />
+                                            ) : (
+                                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                            )}
+                                            <span className="font-medium">{testResult.message}</span>
+                                        </div>
+                                    )}
+
                                     <button
                                         onClick={handleSave}
-                                        disabled={!form.name || !form.modelId || !form.apiKey || !form.baseUrl}
+                                        disabled={!form.name || !form.modelId || !form.apiKey || !form.baseUrl || isTesting}
                                         className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                                     >
-                                        <Save className="w-4 h-4" />
-                                        <span>{editingId ? 'Update Configuration' : 'Add Configuration'}</span>
+                                        {isTesting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>Testing Connection...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-4 h-4" />
+                                                <span>{editingId ? 'Update Configuration' : 'Test & Add Configuration'}</span>
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>

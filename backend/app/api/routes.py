@@ -719,3 +719,50 @@ async def delete_session(session_id: int, db: AsyncSession = Depends(get_session
     chat_service = ChatService(db)
     await chat_service.delete_session(session_id)
     return {"status": "success"}
+
+
+class TestModelRequest(BaseModel):
+    model_id: str
+    api_key: str
+    base_url: str
+
+
+@router.post("/test-model")
+async def test_model_connection(request: TestModelRequest):
+    """Test if a model configuration is valid by making a simple API call."""
+    from langchain_openai import ChatOpenAI
+
+    try:
+        # Create a test LLM instance
+        llm = ChatOpenAI(
+            model=request.model_id,
+            api_key=request.api_key,
+            base_url=request.base_url,
+            timeout=15,
+            max_retries=1
+        )
+
+        # Make a simple test call
+        response = await llm.ainvoke([HumanMessage(content="Hi, respond with just 'OK'.")])
+
+        return {
+            "success": True,
+            "message": "Model connection successful",
+            "response": response.content[:100] if response.content else "OK"
+        }
+    except Exception as e:
+        error_msg = str(e)
+        # Clean up error message for common cases
+        if "401" in error_msg or "Unauthorized" in error_msg.lower():
+            error_msg = "Invalid API key - authentication failed"
+        elif "404" in error_msg or "not found" in error_msg.lower():
+            error_msg = "Model not found - please check the model ID"
+        elif "Connection" in error_msg or "timeout" in error_msg.lower():
+            error_msg = "Connection failed - please check the base URL"
+        elif "Invalid URL" in error_msg:
+            error_msg = "Invalid base URL format"
+
+        return {
+            "success": False,
+            "message": error_msg
+        }
