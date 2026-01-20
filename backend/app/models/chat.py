@@ -10,9 +10,10 @@ def utc_now():
 class ChatSession(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(default="New Chat")
+    user_id: Optional[str] = Field(default=None, index=True)  # For data isolation
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
-    
+
     messages: List["ChatMessage"] = Relationship(back_populates="session")
 
     @field_serializer("created_at", "updated_at")

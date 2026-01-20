@@ -28,6 +28,7 @@ class ChatRequest(BaseModel):
     model_id: str | None = None
     api_key: str | None = None
     base_url: str | None = None
+    user_id: str | None = None  # For data isolation
 
 
 class StreamingTagParser:
@@ -196,7 +197,7 @@ extract_json_fields = extract_tag_fields
 
 
 async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenerator[str, None]:
-    chat_service = ChatService(db)
+    chat_service = ChatService(db, user_id=request.user_id)
 
     # 1. Manage Session
     session_id = request.session_id
@@ -204,6 +205,11 @@ async def event_generator(request: ChatRequest, db: AsyncSession) -> AsyncGenera
         chat_session = await chat_service.create_session(title=request.prompt[:30])
         session_id = chat_session.id
         yield f"event: session_created\ndata: {json.dumps({'session_id': session_id})}\n\n"
+    else:
+        # Verify session ownership
+        if not await chat_service.verify_session_ownership(session_id):
+            yield f"event: error\ndata: {json.dumps({'message': 'Session not found or access denied'})}\n\n"
+            return
 
     # 2. Load History for context reconstruction
     all_history = await chat_service.get_history(session_id)
@@ -659,14 +665,18 @@ async def chat_completions(request: ChatRequest, db: AsyncSession = Depends(get_
     return StreamingResponse(event_generator(request, db), media_type="text/event-stream")
 
 @router.get("/sessions")
-async def list_sessions(db: AsyncSession = Depends(get_session)):
-    chat_service = ChatService(db)
+async def list_sessions(user_id: str | None = None, db: AsyncSession = Depends(get_session)):
+    chat_service = ChatService(db, user_id=user_id)
     sessions = await chat_service.get_all_sessions()
     return sessions
 
 @router.get("/sessions/{session_id}")
-async def get_session_history(session_id: int, db: AsyncSession = Depends(get_session)):
-    chat_service = ChatService(db)
+async def get_session_history(session_id: int, user_id: str | None = None, db: AsyncSession = Depends(get_session)):
+    chat_service = ChatService(db, user_id=user_id)
+    # Verify ownership
+    if not await chat_service.verify_session_ownership(session_id):
+        return {"messages": [], "session": None, "error": "Session not found or access denied"}
+
     history = await chat_service.get_history(session_id)
     session = await chat_service.get_session(session_id)
 
@@ -676,8 +686,11 @@ async def get_session_history(session_id: int, db: AsyncSession = Depends(get_se
     }
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: int, db: AsyncSession = Depends(get_session)):
-    chat_service = ChatService(db)
+async def delete_session(session_id: int, user_id: str | None = None, db: AsyncSession = Depends(get_session)):
+    chat_service = ChatService(db, user_id=user_id)
+    # Verify ownership before deleting
+    if not await chat_service.verify_session_ownership(session_id):
+        return {"status": "error", "message": "Session not found or access denied"}
     await chat_service.delete_session(session_id)
     return {"status": "success"}
 
@@ -727,3 +740,75 @@ async def test_model_connection(request: TestModelRequest):
             "success": False,
             "message": error_msg
         }
+
+
+# ============ Auth Routes ============
+
+class GoogleAuthRequest(BaseModel):
+    credential: str  # JWT token from Google
+
+
+@router.post("/auth/google")
+async def google_auth(request: GoogleAuthRequest, db: AsyncSession = Depends(get_session)):
+    """Verify Google credential and create/update user."""
+    from app.services.auth import AuthService
+    import jwt
+
+    try:
+        # Decode the JWT (without verification - Google already verified it)
+        # In production, you should verify with Google's public keys
+        decoded = jwt.decode(request.credential, options={"verify_signature": False})
+
+        user_id = decoded.get("sub")  # Google's unique user ID
+        if not user_id:
+            return {"success": False, "message": "Invalid credential"}
+
+        user_info = {
+            "email": decoded.get("email"),
+            "name": decoded.get("name"),
+            "picture": decoded.get("picture"),
+            "email_verified": decoded.get("email_verified"),
+        }
+
+        auth_service = AuthService(db)
+        user = await auth_service.get_or_create_user(
+            user_id=user_id,
+            auth_type="google",
+            user_info=user_info
+        )
+
+        return {
+            "success": True,
+            "user": {
+                "id": user.user_id,
+                "email": user_info.get("email"),
+                "name": user_info.get("name"),
+                "picture": user_info.get("picture"),
+            }
+        }
+    except Exception as e:
+        logger.error(f"Google auth error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.get("/auth/user/{user_id}")
+async def get_user(user_id: str, db: AsyncSession = Depends(get_session)):
+    """Get user info by user_id."""
+    from app.services.auth import AuthService
+
+    auth_service = AuthService(db)
+    user = await auth_service.get_user_by_id(user_id)
+
+    if not user:
+        return {"success": False, "message": "User not found"}
+
+    return {
+        "success": True,
+        "user": {
+            "id": user.user_id,
+            "type": user.type,
+            "email": user.user_info.get("email") if user.user_info else None,
+            "name": user.user_info.get("name") if user.user_info else None,
+            "picture": user.user_info.get("picture") if user.user_info else None,
+        }
+    }

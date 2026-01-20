@@ -1,13 +1,15 @@
+from typing import Optional
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.chat import ChatSession, ChatMessage
 
 class ChatService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, user_id: Optional[str] = None):
         self.session = session
+        self.user_id = user_id
 
     async def create_session(self, title: str = "New Chat") -> ChatSession:
-        chat_session = ChatSession(title=title)
+        chat_session = ChatSession(title=title, user_id=self.user_id)
         self.session.add(chat_session)
         await self.session.commit()
         await self.session.refresh(chat_session)
@@ -16,7 +18,22 @@ class ChatService:
     async def get_session(self, session_id: int) -> ChatSession | None:
         statement = select(ChatSession).where(ChatSession.id == session_id)
         result = await self.session.exec(statement)
-        return result.first()
+        session = result.first()
+        # Verify ownership if user_id is set
+        if session and self.user_id and session.user_id != self.user_id:
+            return None
+        return session
+
+    async def verify_session_ownership(self, session_id: int) -> bool:
+        """Verify that the current user owns this session."""
+        session = await self.get_session(session_id)
+        if not session:
+            return False
+        # Allow if no user_id filter (anonymous) and session has no user_id
+        if not self.user_id and not session.user_id:
+            return True
+        # Allow if user_ids match
+        return session.user_id == self.user_id
 
     async def add_message(
         self, 
@@ -84,7 +101,12 @@ class ChatService:
         return result.all()
 
     async def get_all_sessions(self):
-        statement = select(ChatSession).order_by(ChatSession.updated_at.desc())
+        # Filter by user_id if provided for data isolation
+        if self.user_id:
+            statement = select(ChatSession).where(ChatSession.user_id == self.user_id).order_by(ChatSession.updated_at.desc())
+        else:
+            # For anonymous users, show sessions without user_id
+            statement = select(ChatSession).where(ChatSession.user_id == None).order_by(ChatSession.updated_at.desc())
         result = await self.session.exec(statement)
         return result.all()
 

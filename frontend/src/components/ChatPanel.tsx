@@ -7,7 +7,9 @@ import {
     ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { useSettingsStore } from '../store/settingsStore';
+import { useUserStore } from '../store/userStore';
 import { SettingsModal } from './common/SettingsModal';
+import { UserMenu } from './common/UserMenu';
 import { useChatStore } from '../store/chatStore';
 import type { Step, Message, DocAnalysisBlock } from '../types';
 import { cn, copyToClipboard, parseMixedContent } from '../lib/utils';
@@ -612,6 +614,9 @@ export const ChatPanel = () => {
         }
         console.log('--------------------');
 
+        // Get user_id for data isolation
+        const { user } = useUserStore.getState();
+
         try {
             const response = await fetch('/api/chat/completions', {
                 method: 'POST',
@@ -627,7 +632,8 @@ export const ChatPanel = () => {
                     model_id: activeModel?.modelId,
                     api_key: activeModel?.apiKey,
                     base_url: activeModel?.baseUrl,
-                    files: filesToUse
+                    files: filesToUse,
+                    user_id: user?.id || null
                 }),
                 signal: abortControllerRef.current.signal
             });
@@ -984,6 +990,8 @@ export const ChatPanel = () => {
                     >
                         <Settings className="w-5 h-5" />
                     </button>
+
+                    <UserMenu />
 
                     <button
                         onClick={() => {
