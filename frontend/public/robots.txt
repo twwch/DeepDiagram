@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: http://deepd.cturing.cn/sitemap.xml
+Sitemap: https://deepd.cturing.cn/sitemap.xml
