@@ -484,7 +484,8 @@ export const ChatPanel = () => {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        // Don't submit when using IME (e.g., Chinese input method pressing Enter to confirm)
+        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             void triggerSubmit();
         }
