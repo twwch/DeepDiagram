@@ -81,8 +81,17 @@ export function Hero() {
               <div className="h-3 w-3 rounded-full bg-green-500/80" />
               <span className="ml-3 text-xs text-gray-400">deepd.cturing.cn/app</span>
             </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/demo.gif" alt="DeepDiagram Demo" className="w-full" />
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              width={960}
+              height={470}
+              className="w-full"
+            >
+              <source src="/images/demo.mp4" type="video/mp4" />
+            </video>
           </div>
         </motion.div>
       </Container>

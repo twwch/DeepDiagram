@@ -1,8 +1,9 @@
 import { setRequestLocale } from 'next-intl/server';
 import { useTranslations } from 'next-intl';
 import { Section } from '@/components/ui/Section';
-import { Brain, GitBranch, BarChart3, Cpu, Share2, Image } from 'lucide-react';
+import { Brain, GitBranch, BarChart3, Cpu, Share2, Image as ImageIcon } from 'lucide-react';
 import { createMetadata } from '@/lib/seo/metadata';
+import NextImage from 'next/image';
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -15,13 +16,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 }
 
 const agents = [
-  { key: 'mindmap', icon: Brain, color: 'from-purple-500 to-purple-600', image: '/images/features/mindmap.png' },
-  { key: 'flowchart', icon: GitBranch, color: 'from-blue-500 to-blue-600', image: '/images/features/flow.png' },
-  { key: 'chart', icon: BarChart3, color: 'from-green-500 to-green-600', image: '/images/features/chart.gif' },
-  { key: 'drawio', icon: Cpu, color: 'from-orange-500 to-orange-600', image: '/images/features/draw.png' },
-  { key: 'mermaid', icon: Share2, color: 'from-cyan-500 to-cyan-600', image: '/images/features/mermaid.png' },
-  { key: 'infographic', icon: Image, color: 'from-pink-500 to-pink-600', image: '/images/features/infographic.gif' },
-];
+  { key: 'mindmap', icon: Brain, color: 'from-purple-500 to-purple-600', image: '/images/features/mindmap.png', width: 2980, height: 1654 },
+  { key: 'flowchart', icon: GitBranch, color: 'from-blue-500 to-blue-600', image: '/images/features/flow.png', width: 2944, height: 1638 },
+  { key: 'chart', icon: BarChart3, color: 'from-green-500 to-green-600', video: '/images/features/chart.mp4', width: 960, height: 466 },
+  { key: 'drawio', icon: Cpu, color: 'from-orange-500 to-orange-600', image: '/images/features/draw.png', width: 2966, height: 1650 },
+  { key: 'mermaid', icon: Share2, color: 'from-cyan-500 to-cyan-600', image: '/images/features/mermaid.png', width: 2968, height: 1630 },
+  { key: 'infographic', icon: ImageIcon, color: 'from-pink-500 to-pink-600', video: '/images/features/infographic.mp4', width: 960, height: 530 },
+] as const;
 
 export default async function FeaturesPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -67,12 +68,29 @@ function FeaturesContent() {
                 </div>
                 <div className="flex-1">
                   <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={agent.image}
-                      alt={t(`${agent.key}.title`)}
-                      className="w-full object-cover"
-                    />
+                    {'video' in agent ? (
+                      <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        width={agent.width}
+                        height={agent.height}
+                        className="w-full object-cover"
+                      >
+                        <source src={agent.video} type="video/mp4" />
+                      </video>
+                    ) : (
+                      <NextImage
+                        src={agent.image}
+                        alt={t(`${agent.key}.title`)}
+                        width={agent.width}
+                        height={agent.height}
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        className="w-full object-cover"
+                        loading={i < 2 ? 'eager' : 'lazy'}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
