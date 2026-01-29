@@ -46,5 +46,15 @@ services:
     ports:
       - "80:80"
 
+  website:
+    image: twwch/deepdiagram-website:latest
+    container_name: deepdiagram-website
+    build:
+      context: ./website
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:

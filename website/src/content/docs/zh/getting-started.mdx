@@ -1,0 +1,116 @@
+---
+title: "快速开始"
+description: "5 分钟内启动 DeepDiagram，体验 AI 智能绘图"
+order: 1
+---
+
+## 前置要求
+
+- **Docker** 和 **Docker Compose** 已安装
+- 一个可用的 LLM API Key（OpenAI、DeepSeek 或其他 OpenAI 兼容的服务商）
+
+## 第一步：克隆项目
+
+```bash
+git clone https://github.com/twwch/DeepDiagram.git
+cd DeepDiagram
+```
+
+## 第二步：配置环境变量
+
+在项目根目录创建 `.env` 文件：
+
+```env
+# 选择一个 LLM 提供商
+
+# --- 方式 1：OpenAI ---
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
+OPENAI_BASE_URL=https://api.openai.com
+MODEL_ID=gpt-4o
+
+# --- 方式 2：DeepSeek（推荐，性价比高）---
+# 如果设置了 DEEPSEEK_API_KEY，将优先使用 DeepSeek
+# DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
+# DEEPSEEK_BASE_URL=https://api.deepseek.com
+# MODEL_ID=deepseek-chat
+```
+
+> 你也可以使用任何兼容 OpenAI API 格式的服务商，包括本地部署的 Ollama。
+
+## 第三步：启动服务
+
+```bash
+docker compose up -d
+```
+
+此命令会自动启动三个服务：
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| **frontend** | `80` | React 前端应用 |
+| **backend** | `8000` | FastAPI 后端 API |
+| **db** | `5432` | PostgreSQL 数据库 |
+
+## 第四步：开始使用
+
+打开浏览器访问 **http://localhost**，即可开始使用。
+
+### 试试这些提示词
+
+- `帮我画一个微服务架构图`
+- `画一个用户注册的流程图`
+- `@mindmap 整理一下 React 的核心概念`
+- `@charts 帮我画一个柱状图，数据：Q1: 120, Q2: 200, Q3: 150, Q4: 300`
+
+### 上传文件
+
+你可以直接上传 Excel、PDF、Word、PPT 等文件，AI 会自动解析并生成对应的图表。
+
+## 验证服务状态
+
+```bash
+# 查看所有容器状态
+docker compose ps
+
+# 查看后端日志
+docker compose logs -f backend
+```
+
+## 本地开发
+
+如果你想修改源码进行开发，可以分别启动前后端：
+
+### 后端（Python 3.13 + uv）
+
+```bash
+cd backend
+uv sync                 # 安装依赖
+bash start_backend.sh   # 启动（含数据库迁移）
+```
+
+后端将运行在 http://localhost:8000
+
+### 前端（Node.js 20+）
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+前端将运行在 http://localhost:5173
+
+## 配置模型
+
+启动后，你也可以在界面右上角的 **设置** 中配置 LLM 模型：
+
+1. 点击设置图标
+2. 填写 Name、Base URL、Model ID、API Key
+3. 从下拉菜单选择模型
+
+支持 OpenAI、DeepSeek、Claude 等主流模型，也可接入本地部署的大模型。
+
+## 下一步
+
+- [部署指南](/docs/deployment) — 生产环境 Docker 部署和 Nginx 配置
+- [API 参考](/docs/api-reference) — 后端 SSE 接口详细文档

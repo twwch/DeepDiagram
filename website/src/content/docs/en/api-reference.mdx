@@ -1,0 +1,293 @@
+---
+title: "API Reference"
+description: "Backend SSE streaming API documentation"
+order: 3
+---
+
+## Overview
+
+The DeepDiagram backend is built on **FastAPI** and provides an SSE (Server-Sent Events) streaming interface. The frontend sends messages via POST requests, and the backend returns AI-generated results as an SSE event stream.
+
+**Base URL**: `http://localhost:8000`
+
+## Endpoint List
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/chat/completions` | Send a message and receive SSE streaming response |
+| GET | `/api/sessions` | List all sessions |
+| GET | `/api/sessions/:session_id` | Get message history for a session |
+| DELETE | `/api/sessions/:session_id` | Delete a session |
+| POST | `/api/test-model` | Test model connection |
+
+---
+
+## Chat Endpoint
+
+### POST /api/chat/completions
+
+Send a message to the AI and receive a streaming response.
+
+#### Request Body
+
+```json
+{
+  "session_id": null,
+  "prompt": "Draw a microservices architecture diagram",
+  "images": [],
+  "files": [],
+  "history": [],
+  "context": {},
+  "parent_id": null,
+  "is_retry": false,
+  "concurrency": 3,
+  "model_id": null,
+  "api_key": null,
+  "base_url": null,
+  "agent_id": null
+}
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `session_id` | `int \| null` | No | Session ID. `null` creates a new session |
+| `prompt` | `string` | Yes | User message content |
+| `images` | `string[]` | No | Base64-encoded image list |
+| `files` | `object[]` | No | Uploaded files: `{"name": "file.xlsx", "data": "base64..."}` |
+| `history` | `object[]` | No | Conversation history |
+| `context` | `object` | No | Additional context |
+| `parent_id` | `int \| null` | No | Parent message ID for branching |
+| `is_retry` | `boolean` | No | Whether to retry the last response |
+| `concurrency` | `int` | No | Document parsing concurrency, default 3 |
+| `model_id` | `string \| null` | No | Override default model |
+| `api_key` | `string \| null` | No | Override default API key |
+| `base_url` | `string \| null` | No | Override default base URL |
+| `agent_id` | `string \| null` | No | Force a specific agent |
+
+#### SSE Response Events
+
+The backend returns various event types via SSE:
+
+**Session Management**
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `session_created` | `{"session_id": 1}` | New session created |
+| `message_created` | `{"id": 1, "role": "user", "turn_index": 0}` | User message saved |
+
+**Document Parsing**
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `doc_analysis_start` | `{"session_id": 1}` | Started parsing uploaded document |
+| `doc_analysis_chunk` | `{"content": "...", "index": 0, "status": "running"}` | Document parsing progress |
+| `doc_analysis_end` | `{"content": "...", "session_id": 1}` | Document parsing complete |
+
+**Agent Routing**
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `agent_selected` | `{"agent": "drawio", "session_id": 1}` | AI-selected agent |
+
+**AI Generation**
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `design_concept_start` | `{"session_id": 1}` | Design concept stream started |
+| `design_concept` | `{"content": "...", "session_id": 1}` | Design concept content (streaming) |
+| `design_concept_end` | `{"session_id": 1}` | Design concept stream ended |
+| `tool_start` | `{"tool": "drawio", "input": {}, "session_id": 1}` | Diagram code generation started |
+| `tool_code` | `{"content": "...", "session_id": 1}` | Diagram code (incremental streaming) |
+| `tool_end` | `{"output": "...", "session_id": 1}` | Complete diagram code |
+| `thought` | `{"content": "...", "session_id": 1}` | General agent text response (streaming) |
+
+## Agent Types
+
+The system includes 7 specialized agents. The AI router automatically selects the best agent based on user intent:
+
+| Agent ID | Name | Output Format |
+|----------|------|---------------|
+| `mindmap` | Mind Map | Markdown (`#` hierarchy) |
+| `flowchart` | Flowchart | React Flow JSON |
+| `charts` | Data Charts | ECharts config JSON |
+| `drawio` | Architecture Diagram | mxGraph XML |
+| `mermaid` | Mermaid Diagram | Mermaid syntax |
+| `infographic` | Infographic | AntV DSL |
+| `general` | General Chat | Plain text |
+
+### Specifying an Agent
+
+You can explicitly specify an agent using the `@` prefix in your message:
+
+```
+@mindmap Organize the TypeScript type system
+@charts Create a pie chart with data: A: 30%, B: 45%, C: 25%
+@mermaid Draw a user login sequence diagram
+@drawio Design a cloud-native microservices architecture
+```
+
+## Output Format Examples
+
+### Mind Map (Markdown)
+
+```markdown
+# React Core Concepts
+## Components
+### Function Components
+### Class Components
+## Hooks
+### useState
+### useEffect
+### useContext
+## State Management
+### Context API
+### Redux
+### Zustand
+```
+
+### Data Chart (ECharts JSON)
+
+```json
+{
+  "title": { "text": "Quarterly Sales" },
+  "xAxis": { "data": ["Q1", "Q2", "Q3", "Q4"] },
+  "yAxis": {},
+  "series": [{ "type": "bar", "data": [120, 200, 150, 300] }]
+}
+```
+
+### Architecture Diagram (mxGraph XML)
+
+```xml
+<mxfile>
+  <diagram>
+    <mxGraphModel>
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="Web Server" style="rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="100" width="120" height="60" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+```
+
+### Mermaid Diagram
+
+```
+graph TD
+    A[User Request] --> B{Router}
+    B -->|API| C[Backend Service]
+    B -->|Static| D[CDN]
+    C --> E[Database]
+```
+
+## File Upload
+
+The following file formats are supported for upload and automatic parsing:
+
+| Format | Library | Description |
+|--------|---------|-------------|
+| PDF | PyMuPDF | Text content extraction |
+| DOCX | python-docx | Paragraphs and tables extraction |
+| XLSX | pandas + openpyxl | Data sheet parsing |
+| PPTX | python-pptx | Slide content extraction |
+| TXT / MD | Built-in | Plain text reading |
+
+Files are transmitted as Base64 in the `files` field. The AI automatically parses file content and uses it for chart generation.
+
+## Session Management Endpoints
+
+### GET /api/sessions
+
+List all sessions.
+
+**Response example:**
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Microservices Architecture",
+    "created_at": "2026-01-29T10:00:00Z",
+    "updated_at": "2026-01-29T10:05:00Z"
+  }
+]
+```
+
+### GET /api/sessions/:session_id
+
+Get message history for a specific session.
+
+**Response example:**
+
+```json
+{
+  "session": { "id": 1, "title": "Microservices Architecture" },
+  "messages": [
+    {
+      "id": 1,
+      "role": "user",
+      "content": "Draw a microservices architecture diagram",
+      "agent": null,
+      "turn_index": 0
+    },
+    {
+      "id": 2,
+      "role": "assistant",
+      "content": "...",
+      "agent": "drawio",
+      "turn_index": 0
+    }
+  ]
+}
+```
+
+### DELETE /api/sessions/:session_id
+
+Delete a session and all its messages.
+
+**Response:** `{"status": "success"}`
+
+### POST /api/test-model
+
+Test if a model configuration is valid.
+
+**Request body:**
+
+```json
+{
+  "model_id": "gpt-4o",
+  "api_key": "sk-xxx",
+  "base_url": "https://api.openai.com"
+}
+```
+
+**Response example:**
+
+```json
+{
+  "success": true,
+  "message": "Model connection successful",
+  "response": "OK"
+}
+```
+
+---
+
+## Error Handling
+
+The following error events may appear in the SSE stream:
+
+| Event | Description |
+|-------|-------------|
+| `status` | `{"content": "error message"}` — Processing status or error info |
+
+Common error causes:
+- Invalid API key or insufficient quota
+- Model does not support the requested feature
+- Unsupported or corrupted file format

@@ -1,0 +1,116 @@
+---
+title: "Getting Started"
+description: "Get DeepDiagram running in 5 minutes"
+order: 1
+---
+
+## Prerequisites
+
+- **Docker** and **Docker Compose** installed
+- An LLM API key (OpenAI, DeepSeek, or any OpenAI-compatible provider)
+
+## Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/twwch/DeepDiagram.git
+cd DeepDiagram
+```
+
+## Step 2: Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# Choose an LLM provider
+
+# --- Option 1: OpenAI ---
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
+OPENAI_BASE_URL=https://api.openai.com
+MODEL_ID=gpt-4o
+
+# --- Option 2: DeepSeek (Recommended for cost efficiency) ---
+# If DEEPSEEK_API_KEY is set, it takes priority over OpenAI
+# DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
+# DEEPSEEK_BASE_URL=https://api.deepseek.com
+# MODEL_ID=deepseek-chat
+```
+
+> You can also use any OpenAI-compatible API provider, including locally deployed Ollama.
+
+## Step 3: Start the Services
+
+```bash
+docker compose up -d
+```
+
+This command automatically starts three services:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **frontend** | `80` | React frontend application |
+| **backend** | `8000` | FastAPI backend API |
+| **db** | `5432` | PostgreSQL database |
+
+## Step 4: Start Using
+
+Open your browser and visit **http://localhost** to get started.
+
+### Try These Prompts
+
+- `Draw a microservices architecture diagram`
+- `Create a user registration flowchart`
+- `@mindmap Organize the core concepts of React`
+- `@charts Create a bar chart with data: Q1: 120, Q2: 200, Q3: 150, Q4: 300`
+
+### Upload Files
+
+You can upload Excel, PDF, Word, and PPT files directly. The AI will automatically parse them and generate the corresponding charts.
+
+## Verify Service Status
+
+```bash
+# Check all container statuses
+docker compose ps
+
+# View backend logs
+docker compose logs -f backend
+```
+
+## Local Development
+
+To develop locally with source code changes:
+
+### Backend (Python 3.13 + uv)
+
+```bash
+cd backend
+uv sync                 # Install dependencies
+bash start_backend.sh   # Start (includes DB migrations)
+```
+
+Backend runs at http://localhost:8000
+
+### Frontend (Node.js 20+)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend runs at http://localhost:5173
+
+## Configure Models
+
+After startup, you can also configure LLM models via the **Settings** icon in the top-right corner:
+
+1. Click the settings icon
+2. Enter Name, Base URL, Model ID, and API Key
+3. Select the model from the dropdown
+
+Supports OpenAI, DeepSeek, Claude, and other mainstream models. You can also connect locally deployed models.
+
+## Next Steps
+
+- [Deployment Guide](/docs/deployment) — Production Docker deployment and Nginx configuration
+- [API Reference](/docs/api-reference) — Backend SSE API documentation

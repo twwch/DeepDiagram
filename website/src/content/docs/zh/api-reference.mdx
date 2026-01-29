@@ -1,0 +1,293 @@
+---
+title: "API 参考"
+description: "后端 SSE 流式接口文档"
+order: 3
+---
+
+## 概述
+
+DeepDiagram 后端基于 **FastAPI** 构建，提供 SSE（Server-Sent Events）流式接口。前端通过 POST 请求发送消息，后端以 SSE 事件流返回 AI 生成结果。
+
+**Base URL**: `http://localhost:8000`
+
+## 接口列表
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/chat/completions` | 发送消息并接收 SSE 流式响应 |
+| GET | `/api/sessions` | 获取所有会话列表 |
+| GET | `/api/sessions/:session_id` | 获取指定会话的消息历史 |
+| DELETE | `/api/sessions/:session_id` | 删除指定会话 |
+| POST | `/api/test-model` | 测试模型连接是否可用 |
+
+---
+
+## 聊天接口
+
+### POST /api/chat/completions
+
+向 AI 发送消息并接收流式响应。
+
+#### 请求体
+
+```json
+{
+  "session_id": null,
+  "prompt": "帮我画一个微服务架构图",
+  "images": [],
+  "files": [],
+  "history": [],
+  "context": {},
+  "parent_id": null,
+  "is_retry": false,
+  "concurrency": 3,
+  "model_id": null,
+  "api_key": null,
+  "base_url": null,
+  "agent_id": null
+}
+```
+
+#### 参数说明
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | `int \| null` | 否 | 会话 ID，`null` 则创建新会话 |
+| `prompt` | `string` | 是 | 用户消息内容 |
+| `images` | `string[]` | 否 | Base64 编码的图片列表 |
+| `files` | `object[]` | 否 | 上传的文件，格式：`{"name": "file.xlsx", "data": "base64..."}` |
+| `history` | `object[]` | 否 | 对话历史 |
+| `context` | `object` | 否 | 附加上下文 |
+| `parent_id` | `int \| null` | 否 | 父消息 ID，用于消息分支 |
+| `is_retry` | `boolean` | 否 | 是否重试上一条回复 |
+| `concurrency` | `int` | 否 | 文档解析并发数，默认 3 |
+| `model_id` | `string \| null` | 否 | 覆盖默认模型 |
+| `api_key` | `string \| null` | 否 | 覆盖默认 API Key |
+| `base_url` | `string \| null` | 否 | 覆盖默认 Base URL |
+| `agent_id` | `string \| null` | 否 | 强制指定 Agent |
+
+#### SSE 响应事件
+
+后端通过 SSE 返回多种事件类型：
+
+**会话管理**
+
+| 事件 | 数据 | 说明 |
+|------|------|------|
+| `session_created` | `{"session_id": 1}` | 新会话已创建 |
+| `message_created` | `{"id": 1, "role": "user", "turn_index": 0}` | 用户消息已保存 |
+
+**文档解析**
+
+| 事件 | 数据 | 说明 |
+|------|------|------|
+| `doc_analysis_start` | `{"session_id": 1}` | 开始解析上传文档 |
+| `doc_analysis_chunk` | `{"content": "...", "index": 0, "status": "running"}` | 文档解析进度 |
+| `doc_analysis_end` | `{"content": "...", "session_id": 1}` | 文档解析完成 |
+
+**Agent 路由**
+
+| 事件 | 数据 | 说明 |
+|------|------|------|
+| `agent_selected` | `{"agent": "drawio", "session_id": 1}` | AI 选择的 Agent |
+
+**AI 生成**
+
+| 事件 | 数据 | 说明 |
+|------|------|------|
+| `design_concept_start` | `{"session_id": 1}` | AI 设计思路流开始 |
+| `design_concept` | `{"content": "...", "session_id": 1}` | 设计思路内容（流式） |
+| `design_concept_end` | `{"session_id": 1}` | 设计思路流结束 |
+| `tool_start` | `{"tool": "drawio", "input": {}, "session_id": 1}` | 图表代码生成开始 |
+| `tool_code` | `{"content": "...", "session_id": 1}` | 图表代码（增量流式） |
+| `tool_end` | `{"output": "...", "session_id": 1}` | 完整图表代码 |
+| `thought` | `{"content": "...", "session_id": 1}` | 通用 Agent 文本回复（流式） |
+
+## Agent 类型
+
+系统包含 7 个专业 Agent，由 AI 路由器根据用户意图自动选择：
+
+| Agent ID | 名称 | 输出格式 |
+|----------|------|----------|
+| `mindmap` | 思维导图 | Markdown（`#` 层级） |
+| `flowchart` | 流程图 | React Flow JSON |
+| `charts` | 数据图表 | ECharts 配置 JSON |
+| `drawio` | 架构图 | mxGraph XML |
+| `mermaid` | Mermaid 图 | Mermaid 语法 |
+| `infographic` | 信息图 | AntV DSL |
+| `general` | 通用对话 | 纯文本 |
+
+### 指定 Agent
+
+你可以在消息中使用 `@` 前缀显式指定 Agent：
+
+```
+@mindmap 整理 TypeScript 的类型系统
+@charts 画一个饼图，数据：A: 30%, B: 45%, C: 25%
+@mermaid 画一个用户登录的时序图
+@drawio 设计一个云原生微服务架构
+```
+
+## 输出格式示例
+
+### 思维导图（Markdown）
+
+```markdown
+# React 核心概念
+## 组件
+### 函数组件
+### 类组件
+## Hooks
+### useState
+### useEffect
+### useContext
+## 状态管理
+### Context API
+### Redux
+### Zustand
+```
+
+### 数据图表（ECharts JSON）
+
+```json
+{
+  "title": { "text": "季度销售额" },
+  "xAxis": { "data": ["Q1", "Q2", "Q3", "Q4"] },
+  "yAxis": {},
+  "series": [{ "type": "bar", "data": [120, 200, 150, 300] }]
+}
+```
+
+### 架构图（mxGraph XML）
+
+```xml
+<mxfile>
+  <diagram>
+    <mxGraphModel>
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="Web Server" style="rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="100" width="120" height="60" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+```
+
+### Mermaid 图
+
+```
+graph TD
+    A[用户请求] --> B{路由分发}
+    B -->|API| C[后端服务]
+    B -->|静态资源| D[CDN]
+    C --> E[数据库]
+```
+
+## 文件上传
+
+支持以下格式的文件上传和自动解析：
+
+| 格式 | 库 | 说明 |
+|------|-----|------|
+| PDF | PyMuPDF | 提取文本内容 |
+| DOCX | python-docx | 提取段落和表格 |
+| XLSX | pandas + openpyxl | 解析数据表 |
+| PPTX | python-pptx | 提取幻灯片内容 |
+| TXT / MD | 内置 | 纯文本读取 |
+
+文件以 Base64 编码在 `files` 字段中传输，AI 会自动解析内容并用于图表生成。
+
+## 会话管理接口
+
+### GET /api/sessions
+
+获取所有会话列表。
+
+**响应示例：**
+
+```json
+[
+  {
+    "id": 1,
+    "title": "微服务架构图",
+    "created_at": "2026-01-29T10:00:00Z",
+    "updated_at": "2026-01-29T10:05:00Z"
+  }
+]
+```
+
+### GET /api/sessions/:session_id
+
+获取指定会话的消息历史。
+
+**响应示例：**
+
+```json
+{
+  "session": { "id": 1, "title": "微服务架构图" },
+  "messages": [
+    {
+      "id": 1,
+      "role": "user",
+      "content": "帮我画一个微服务架构图",
+      "agent": null,
+      "turn_index": 0
+    },
+    {
+      "id": 2,
+      "role": "assistant",
+      "content": "...",
+      "agent": "drawio",
+      "turn_index": 0
+    }
+  ]
+}
+```
+
+### DELETE /api/sessions/:session_id
+
+删除指定会话及其所有消息。
+
+**响应：** `{"status": "success"}`
+
+### POST /api/test-model
+
+测试模型配置是否可用。
+
+**请求体：**
+
+```json
+{
+  "model_id": "gpt-4o",
+  "api_key": "sk-xxx",
+  "base_url": "https://api.openai.com"
+}
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "message": "Model connection successful",
+  "response": "OK"
+}
+```
+
+---
+
+## 错误处理
+
+SSE 流中可能出现以下错误事件：
+
+| 事件 | 说明 |
+|------|------|
+| `status` | `{"content": "error message"}` — 处理状态或错误信息 |
+
+常见错误原因：
+- API Key 无效或余额不足
+- 模型不支持请求的功能
+- 文件格式不支持或文件损坏

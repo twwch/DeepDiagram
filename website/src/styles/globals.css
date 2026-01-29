@@ -1,0 +1,255 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), var(--font-noto-sans-sc), system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  --color-primary-950: #172554;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply antialiased;
+}
+
+/* ========================================
+   Prose typography for MDX blog content
+   ======================================== */
+.prose {
+  color: #374151;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+}
+
+.prose > * + * {
+  margin-top: 1.5em;
+}
+
+/* Headings */
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.3;
+  scroll-margin-top: 5rem;
+}
+
+.prose h1 {
+  font-size: 2em;
+  margin-top: 0;
+  margin-bottom: 0.8em;
+}
+
+.prose h2 {
+  font-size: 1.5em;
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prose h3 {
+  font-size: 1.25em;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+}
+
+.prose h4 {
+  font-size: 1.1em;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+}
+
+/* Paragraph */
+.prose p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+/* Links */
+.prose a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-decoration-color: #93c5fd;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s;
+}
+
+.prose a:hover {
+  text-decoration-color: #2563eb;
+}
+
+/* Strong & emphasis */
+.prose strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Lists */
+.prose ul,
+.prose ol {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  padding-left: 1.6em;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose li {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose li::marker {
+  color: #9ca3af;
+}
+
+.prose ol > li::marker {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Nested lists */
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Blockquote */
+.prose blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding: 0.5em 1em;
+  margin: 1.5em 0;
+  color: #6b7280;
+  font-style: italic;
+  background: #f9fafb;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.prose blockquote p {
+  margin: 0.5em 0;
+}
+
+/* Inline code */
+.prose code {
+  color: #111827;
+  font-weight: 500;
+  font-size: 0.875em;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.prose :not(pre) > code {
+  padding: 0.2em 0.4em;
+  background: #f3f4f6;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+}
+
+/* Code blocks */
+.prose pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 0.75rem;
+  padding: 1.25em 1.5em;
+  overflow-x: auto;
+  font-size: 0.875em;
+  line-height: 1.7;
+  margin: 1.75em 0;
+  border: 1px solid #313244;
+}
+
+.prose pre code {
+  color: inherit;
+  font-weight: 400;
+  font-size: inherit;
+  background: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+}
+
+/* Horizontal rule */
+.prose hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 2.5em 0;
+}
+
+/* Images */
+.prose img {
+  border-radius: 0.75rem;
+  margin: 2em 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Tables */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.75em 0;
+  font-size: 0.9375em;
+}
+
+.prose th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #111827;
+  text-align: left;
+  padding: 0.75em 1em;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.prose td {
+  padding: 0.75em 1em;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.prose tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* Callout component styles */
+.callout {
+  margin: 1.5em 0;
+  border-radius: 0.75rem;
+  border-left: 4px solid;
+  padding: 1em 1.25em;
+}
+
+.callout-info {
+  @apply border-blue-500 bg-blue-50 text-blue-900;
+}
+
+.callout-warning {
+  @apply border-yellow-500 bg-yellow-50 text-yellow-900;
+}
+
+.callout-error {
+  @apply border-red-500 bg-red-50 text-red-900;
+}
+
+.callout-tip {
+  @apply border-green-500 bg-green-50 text-green-900;
+}

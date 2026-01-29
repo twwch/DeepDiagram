@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 // Tailwind v4 is handled via postcss plugin in this project.
 
 export default defineConfig({
+  base: '/app',
   plugins: [react()],
   server: {
     proxy: {

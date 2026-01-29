@@ -1,0 +1,114 @@
+{
+  "common": {
+    "getStarted": "Get Started",
+    "tryItFree": "Try it Free",
+    "learnMore": "Learn More",
+    "viewOnGitHub": "GitHub",
+    "readMore": "Read More",
+    "backToBlog": "Back to Blog",
+    "allCategories": "All Categories",
+    "minuteRead": "min read",
+    "openSource": "Open Source",
+    "selfHosted": "Self-hosted"
+  },
+  "nav": {
+    "features": "Features",
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "docs": "Docs",
+    "about": "About",
+    "changelog": "Changelog"
+  },
+  "hero": {
+    "badge": "Open Source AI Visualization Platform",
+    "title": "Natural Language Powered",
+    "titleHighlight": "Intelligent Diagram Generator",
+    "subtitle": "Type a sentence, and AI automatically generates professional mind maps, flowcharts, data charts, architecture diagrams, and more. Six specialized agents cover all your visualization needs.",
+    "cta": "Try it Now",
+    "secondaryCta": "View Source",
+    "trustedBy": "Used by developers worldwide"
+  },
+  "features": {
+    "sectionTitle": "Six Specialized AI Agents",
+    "sectionSubtitle": "Each agent focuses on a specific visualization domain, orchestrated by LangGraph",
+    "mindmap": {
+      "title": "Mind Map",
+      "desc": "Automatically analyzes topic structure and generates multi-level mind maps with expand/collapse and export"
+    },
+    "flowchart": {
+      "title": "Flowchart",
+      "desc": "Transforms business processes and algorithm logic into clear React Flow diagrams"
+    },
+    "chart": {
+      "title": "Data Charts",
+      "desc": "Supports bar, line, pie, radar and 20+ chart types with ECharts"
+    },
+    "drawio": {
+      "title": "Architecture Diagram",
+      "desc": "Generates professional system architecture and network topology diagrams with AWS/Azure/GCP icons"
+    },
+    "mermaid": {
+      "title": "Mermaid Diagrams",
+      "desc": "Supports sequence, Gantt, class, state diagrams and more with Mermaid syntax"
+    },
+    "infographic": {
+      "title": "Infographic",
+      "desc": "Transforms data and information into beautiful visual infographics for presentations and sharing"
+    }
+  },
+  "howItWorks": {
+    "title": "Three Steps to Professional Diagrams",
+    "step1": { "title": "Describe", "desc": "Use natural language to describe your desired diagram" },
+    "step2": { "title": "AI Generates", "desc": "The system automatically selects the best agent to create your diagram" },
+    "step3": { "title": "Export & Share", "desc": "Export as PNG or SVG, share with one click" }
+  },
+  "openSource": {
+    "title": "Fully Open Source, Deploy Anywhere",
+    "subtitle": "MIT licensed, fully open code. Deploy to your own server with Docker in one command.",
+    "cta": "View on GitHub"
+  },
+  "cta": {
+    "title": "Ready to let AI create diagrams for you?",
+    "subtitle": "Free, open source, no registration required. Start using DeepDiagram now.",
+    "button": "Try it Now"
+  },
+  "footer": {
+    "product": "Product",
+    "resources": "Resources",
+    "company": "Company",
+    "description": "AI-powered intelligent visualization platform. Generate professional diagrams with natural language.",
+    "copyright": " 2025 DeepDiagram. All rights reserved."
+  },
+  "pricing": {
+    "title": "Simple, Transparent Pricing",
+    "subtitle": "Open source and free, with hosted services for different needs",
+    "free": {
+      "name": "Open Source",
+      "price": "Free",
+      "desc": "Self-deploy, full control",
+      "features": ["All six AI agents", "Unlimited usage", "One-click Docker deploy", "MIT license", "Community support"]
+    },
+    "pro": {
+      "name": "Hosted",
+      "price": "Coming Soon",
+      "desc": "No deploy needed, ready to use",
+      "features": ["All open source features", "Cloud hosted, zero ops", "Multi-model support", "Team collaboration", "Priority support"]
+    }
+  },
+  "about": {
+    "title": "About DeepDiagram",
+    "subtitle": "We believe AI can make everyone a visualization expert",
+    "mission": "DeepDiagram is an open-source AI visualization platform dedicated to making professional diagram creation simple and efficient through natural language interaction.",
+    "techTitle": "Technology Stack",
+    "techDesc": "Built on LangGraph multi-agent architecture, React + TypeScript frontend, FastAPI + PostgreSQL backend, with one-click Docker deployment."
+  },
+  "blog": {
+    "title": "Blog",
+    "subtitle": "Product updates, technical insights, and best practices",
+    "noPosts": "No posts yet"
+  },
+  "changelog": {
+    "title": "Changelog",
+    "subtitle": "Version history of DeepDiagram"
+  }
+}

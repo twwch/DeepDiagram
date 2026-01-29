@@ -56,6 +56,24 @@ jobs:
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
 
+      - name: Extract metadata (tags, labels) for Website
+        id: meta-website
+        uses: docker/metadata-action@v5
+        with:
+          images: twwch/deepdiagram-website
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=true
+            type=ref,event=branch
+
+      - name: Build and push Website image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./website
+          push: true
+          tags: ${{ steps.meta-website.outputs.tags }}
+          labels: ${{ steps.meta-website.outputs.labels }}
+
   create-release:
     needs: build-and-push
     if: startsWith(github.ref, 'refs/tags/v')

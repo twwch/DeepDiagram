@@ -1,0 +1,71 @@
+---
+title: "告别碎片化绘图：我做了一个 AI 全能绘图助手 DeepDiagram，让 Excel 秒变统计图"
+description: "DeepDiagram 是一个基于 Agentic AI 的多模态可视化平台，支持思维导图、架构图、流程图、数据图表等一站式生成。"
+date: "2026-01-29"
+author: "DeepDiagram Team"
+category: "announcements"
+tags: ["ai", "visualization", "open-source", "excel", "echarts"]
+draft: false
+---
+
+作为一名研发负责人，我的日常几乎被各种"图"占满了：
+* **早上开会**：需要随手拉个**思维导图**理清混乱的需求；
+* **下午写方案**：得画专业的**系统架构图**、**流程图**或**时序图**；
+* **复盘汇报**：必须把 Excel 里的枯燥数据变成直观的**可视化统计表**。
+
+过去，我得在两三个工具之间反复横跳（XMind、Draw.io、ECharts...），文件格式互不兼容，调整样式还极其浪费时间。于是我心一横，干脆自己动手，做了一个开源的 AI 绘图平台 —— **DeepDiagram**。
+
+---
+
+### 1. 它是做什么的？
+
+DeepDiagram 不是一个简单的绘图工具，它是一个**基于 Agentic AI 的多模态可视化平台**。
+
+你不再需要去研究怎么连线、怎么调色，甚至不需要学习复杂的语法。你只需要"说"出你的需求，或者把你的文档、数据丢给它，AI 就会自动路由到最合适的 Agent 帮你完成渲染。
+
+### 2. 核心杀手锏：Excel 直接变图表
+
+这是我个人最常用的功能。很多时候我们手里只有一份原始的 Excel 报表，想做个漂亮的可视化分析。
+
+在 DeepDiagram 里，你只需要**上传 Excel 文件**，说一句"帮我分析这些数据并画个统计图"，它就能自动识别数据维度，利用内置的 **ECharts Agent** 生成交互式的精美图表。
+
+![Excel 转图表演示](https://ladr-1258957911.cos.ap-guangzhou.myqcloud.com/images/DeepDiagram/20260129/20260129-114411.gif)
+
+![数据可视化演示](https://ladr-1258957911.cos.ap-guangzhou.myqcloud.com/images/DeepDiagram/20260129/20260129-115538.gif)
+
+### 3. 全场景覆盖，一个工具就够了
+
+除了处理数据，它还集成了开发者和产品人最常用的几大绘图能力：
+
+* **思维导图**：基于文本输入快速生成分级清晰的 Mind Map，支持实时编辑。
+* **架构图 (Draw.io)**：生成专业级的云架构、网络拓扑图，支持高级画布操作。
+* **Mermaid 引擎**：像写代码一样生成时序图、甘特图、状态图。
+* **精美信息图 (Infographic)**：基于 AntV 引擎，把复杂的商业逻辑变成高颜值的海报。
+
+![多场景绘图](https://ladr-1258957911.cos.ap-guangzhou.myqcloud.com/images/DeepDiagram/20260129/20260129-115024.png)
+
+![架构图演示](https://ladr-1258957911.cos.ap-guangzhou.myqcloud.com/images/DeepDiagram/20260129/20260129-114853.gif)
+
+![Mermaid 演示](https://ladr-1258957911.cos.ap-guangzhou.myqcloud.com/images/DeepDiagram/20260129/20260129-115215.gif)
+
+![信息图演示](https://ladr-1258957911.cos.ap-guangzhou.myqcloud.com/images/DeepDiagram/20260129/20260129-115342.gif)
+
+### 4. 为什么这个项目"不一样"？
+
+* **设计思路可见**：在渲染之前，你会看到 AI 的"思考逻辑（Design Concept）"，它会先告诉你它是如何理解你的架构或数据的。
+* **多模型自由切换**：支持 OpenAI、DeepSeek、Claude 等模型，甚至可以连接你本地部署的大模型。
+* **完全开源，自主掌控**：项目基于 React 19 + FastAPI + LangGraph 构建，采用 AGPL-3.0 协议。你可以根据自己的需求定制专属 Agent。
+
+---
+
+### 5. 写在最后
+
+做这个项目的初衷，就是想让大家把时间花在"思考"上，而不是花在"对齐线条"和"搜索工具"上。无论你是 PM、架构师，还是每天和数据打交道的分析师，希望 DeepDiagram 能帮你把脑海里的想法，瞬间变成结构化的视觉呈现。
+
+目前项目已经在 GitHub 获得不少关注，欢迎点个 Star 支持，或者提 Issue 告诉我你最想要的绘图场景！
+
+---
+
+**项目地址：** [https://github.com/twwch/DeepDiagram](https://github.com/twwch/DeepDiagram)
+
+**在线体验：** [https://deepd.cturing.cn/app](https://deepd.cturing.cn/app)

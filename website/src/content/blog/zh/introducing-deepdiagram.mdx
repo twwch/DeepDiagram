@@ -1,0 +1,49 @@
+---
+title: "DeepDiagram：用自然语言生成专业图表"
+description: "介绍 DeepDiagram —— 一个开源的 AI 可视化平台，支持思维导图、流程图、数据图表等多种图表类型的智能生成。"
+date: "2025-01-15"
+author: "DeepDiagram Team"
+category: "announcements"
+tags: ["ai", "visualization", "open-source", "langgraph"]
+draft: false
+---
+
+## 什么是 DeepDiagram？
+
+DeepDiagram 是一个开源的 AI 可视化平台，它能够将自然语言描述转化为专业的可视化图表。无论你需要思维导图、流程图、数据图表还是系统架构图，只需用一句话描述你的需求，AI 就能自动生成。
+
+## 六大专业智能体
+
+DeepDiagram 内置了六个专业的 AI 智能体，每个智能体专注于一个可视化领域：
+
+1. **思维导图智能体** - 自动分析话题结构，生成多层级思维导图
+2. **流程图智能体** - 将业务流程转化为清晰的流程图
+3. **数据图表智能体** - 支持柱状图、折线图、饼图等 20+ 种图表
+4. **架构图智能体** - 生成专业的系统架构图和网络拓扑图
+5. **Mermaid 智能体** - 支持序列图、甘特图、类图等
+6. **信息图智能体** - 将数据转化为美观的信息图
+
+## 技术架构
+
+DeepDiagram 基于 LangGraph 多智能体架构构建：
+
+- **前端**: React + TypeScript + Tailwind CSS
+- **后端**: FastAPI + PostgreSQL
+- **AI 编排**: LangGraph + LangChain
+- **部署**: Docker 一键部署
+
+## 开始使用
+
+DeepDiagram 完全开源，你可以通过 Docker 快速部署到自己的服务器：
+
+```bash
+git clone https://github.com/twwch/DeepDiagram.git
+cd deepdiagram
+docker compose up -d
+```
+
+访问 `http://localhost` 即可开始使用。
+
+## 开源许可
+
+DeepDiagram 使用 MIT 许可证，你可以自由使用、修改和分发。欢迎在 GitHub 上提交 Issue 和 Pull Request。

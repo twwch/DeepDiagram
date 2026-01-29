@@ -1,0 +1,216 @@
+---
+title: "Deployment Guide"
+description: "Production Docker deployment and Nginx gateway configuration"
+order: 2
+---
+
+## Architecture Overview
+
+DeepDiagram production environment consists of the following services:
+
+| Service | Tech Stack | Image |
+|---------|-----------|-------|
+| **Frontend** | React 19 + Nginx | `twwch/deepdiagram-frontend:latest` |
+| **Backend** | FastAPI + LangGraph | `twwch/deepdiagram-backend:latest` |
+| **Database** | PostgreSQL 16 | `postgres:16-alpine` |
+
+## Docker Compose Deployment
+
+### 1. Create Project Directory
+
+```bash
+mkdir deepdiagram && cd deepdiagram
+```
+
+### 2. Create docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: deepdiagram-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: your_secure_password
+      POSTGRES_DB: deepdiagram
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    image: twwch/deepdiagram-backend:latest
+    container_name: deepdiagram-backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:your_secure_password@db:5432/deepdiagram
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - MODEL_ID=${MODEL_ID}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL}
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: twwch/deepdiagram-frontend:latest
+    container_name: deepdiagram-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
+```
+
+### 3. Create .env File
+
+```env
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
+OPENAI_BASE_URL=https://api.openai.com
+MODEL_ID=gpt-4o
+```
+
+### 4. Start Services
+
+```bash
+docker compose up -d
+```
+
+## Environment Variables
+
+### Model Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | — | OpenAI API key |
+| `OPENAI_BASE_URL` | `https://api.openai.com` | OpenAI API endpoint |
+| `MODEL_ID` | — | Model ID, e.g., `gpt-4o`, `deepseek-chat` |
+| `DEEPSEEK_API_KEY` | — | DeepSeek API key (takes priority if set) |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek API endpoint |
+| `MAX_TOKENS` | `16384` | Maximum context length |
+| `THINKING_VERBOSITY` | `normal` | Thinking detail level: `concise`, `normal`, `verbose` |
+
+### Database Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | see docker-compose | PostgreSQL async connection string |
+
+### Observability
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LANGCHAIN_TRACING_V2` | `false` | Enable LangSmith tracing |
+| `LANGCHAIN_API_KEY` | — | LangSmith API key |
+
+## Nginx Reverse Proxy
+
+If you need domain-based access with HTTPS, add an Nginx gateway.
+
+### Example nginx.conf
+
+```nginx
+upstream frontend {
+    server frontend:80;
+}
+
+upstream backend {
+    server backend:8000;
+}
+
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    client_max_body_size 200m;
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # API proxy
+    location /api {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # SSE support (important)
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+    }
+}
+```
+
+> SSE (Server-Sent Events) requires `proxy_buffering off`, otherwise streaming responses will be buffered.
+
+## Data Persistence
+
+PostgreSQL data is persisted via the Docker Volume `pgdata`.
+
+### Backup Database
+
+```bash
+docker exec deepdiagram-db pg_dump -U postgres deepdiagram > backup.sql
+```
+
+### Restore Database
+
+```bash
+cat backup.sql | docker exec -i deepdiagram-db psql -U postgres deepdiagram
+```
+
+## Update Version
+
+```bash
+# Pull latest images
+docker compose pull
+
+# Restart services
+docker compose up -d
+```
+
+## Build from Source
+
+If you need a custom build:
+
+```bash
+git clone https://github.com/twwch/DeepDiagram.git
+cd DeepDiagram
+docker compose up -d --build
+```
+
+## Troubleshooting
+
+### Backend Cannot Connect to Database
+
+- Verify the password in `DATABASE_URL` matches `POSTGRES_PASSWORD`
+- Confirm the db container is running: `docker compose ps`
+
+### LLM Calls Failing
+
+- Verify API key is valid and has quota
+- Check `OPENAI_BASE_URL` is correct
+- View backend logs: `docker compose logs -f backend`
+
+### SSE Connection Drops
+
+- Confirm Nginx has `proxy_buffering off`
+- Check `proxy_read_timeout` is sufficient (recommended 300s)
+
+### File Upload Fails
+
+- Check Nginx `client_max_body_size` setting (default 200MB)

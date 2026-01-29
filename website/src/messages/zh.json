@@ -1,0 +1,114 @@
+{
+  "common": {
+    "getStarted": "开始使用",
+    "tryItFree": "免费试用",
+    "learnMore": "了解更多",
+    "viewOnGitHub": "GitHub",
+    "readMore": "阅读更多",
+    "backToBlog": "返回博客",
+    "allCategories": "所有分类",
+    "minuteRead": "分钟阅读",
+    "openSource": "开源免费",
+    "selfHosted": "私有部署"
+  },
+  "nav": {
+    "features": "功能特性",
+    "pricing": "定价",
+    "blog": "博客",
+    "docs": "文档",
+    "about": "关于我们",
+    "changelog": "更新日志"
+  },
+  "hero": {
+    "badge": "开源 AI 可视化平台",
+    "title": "自然语言驱动的",
+    "titleHighlight": "智能图表生成平台",
+    "subtitle": "输入一句话，AI 自动生成专业思维导图、流程图、数据图表、架构图等多种可视化图表。六大专业智能体，覆盖全场景可视化需求。",
+    "cta": "立即体验",
+    "secondaryCta": "查看源码",
+    "trustedBy": "已被全球开发者使用"
+  },
+  "features": {
+    "sectionTitle": "六大专业智能体",
+    "sectionSubtitle": "每个智能体专注于一个可视化领域，由 LangGraph 统一编排调度",
+    "mindmap": {
+      "title": "思维导图",
+      "desc": "自动分析话题结构，生成多层级思维导图，支持展开/折叠和导出"
+    },
+    "flowchart": {
+      "title": "流程图",
+      "desc": "将业务流程、算法逻辑转化为清晰的 React Flow 流程图"
+    },
+    "chart": {
+      "title": "数据图表",
+      "desc": "支持柱状图、折线图、饼图、雷达图等 20+ 种 ECharts 图表"
+    },
+    "drawio": {
+      "title": "架构图",
+      "desc": "生成专业的系统架构图、网络拓扑图，支持 AWS/Azure/GCP 图标"
+    },
+    "mermaid": {
+      "title": "Mermaid 图表",
+      "desc": "支持序列图、甘特图、类图、状态图等 Mermaid 语法图表"
+    },
+    "infographic": {
+      "title": "信息图",
+      "desc": "将数据和信息转化为美观的可视化信息图，适合演示和分享"
+    }
+  },
+  "howItWorks": {
+    "title": "三步生成专业图表",
+    "step1": { "title": "输入描述", "desc": "用自然语言描述你想要的图表内容" },
+    "step2": { "title": "AI 智能生成", "desc": "系统自动选择最适合的智能体生成图表" },
+    "step3": { "title": "导出分享", "desc": "支持 PNG、SVG 导出，一键复制分享" }
+  },
+  "openSource": {
+    "title": "完全开源，自由部署",
+    "subtitle": "MIT 许可证，代码完全开放。支持 Docker 一键部署到你自己的服务器。",
+    "cta": "查看 GitHub"
+  },
+  "cta": {
+    "title": "准备好让 AI 帮你画图了吗？",
+    "subtitle": "免费、开源、无需注册，立即开始体验 DeepDiagram。",
+    "button": "立即体验"
+  },
+  "footer": {
+    "product": "产品",
+    "resources": "资源",
+    "company": "公司",
+    "description": "AI 驱动的智能可视化平台，用自然语言生成专业图表。",
+    "copyright": " 2025 DeepDiagram. All rights reserved."
+  },
+  "pricing": {
+    "title": "简单透明的定价",
+    "subtitle": "开源免费，也提供托管服务满足不同需求",
+    "free": {
+      "name": "开源版",
+      "price": "免费",
+      "desc": "自行部署，完全掌控",
+      "features": ["六大智能体全部可用", "无限制使用次数", "Docker 一键部署", "MIT 开源许可", "社区支持"]
+    },
+    "pro": {
+      "name": "托管版",
+      "price": "即将推出",
+      "desc": "无需部署，开箱即用",
+      "features": ["所有开源版功能", "云端托管免运维", "多模型支持", "团队协作", "优先技术支持"]
+    }
+  },
+  "about": {
+    "title": "关于 DeepDiagram",
+    "subtitle": "我们相信 AI 可以让每个人都成为可视化专家",
+    "mission": "DeepDiagram 是一个开源的 AI 可视化平台，致力于通过自然语言交互，让专业图表的创建变得简单高效。",
+    "techTitle": "技术架构",
+    "techDesc": "基于 LangGraph 多智能体架构，前端 React + TypeScript，后端 FastAPI + PostgreSQL，支持 Docker 一键部署。"
+  },
+  "blog": {
+    "title": "博客",
+    "subtitle": "产品动态、技术分享与最佳实践",
+    "noPosts": "暂无文章"
+  },
+  "changelog": {
+    "title": "更新日志",
+    "subtitle": "DeepDiagram 的版本更新记录"
+  }
+}
