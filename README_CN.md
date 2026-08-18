@@ -349,7 +349,7 @@ MODEL_ID=your-model-name
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=twwch/DeepDiagram&type=date&legend=top-left)](https://www.star-history.com/#twwch/DeepDiagram&type=date&legend=top-left)
+[![Star History Chart](https://star-history.dera.page/svg?repos=twwch/DeepDiagram&type=date&legend=top-left)](https://star-history.dera.page/#twwch/DeepDiagram&type=date&legend=top-left)
 
 ---
 
